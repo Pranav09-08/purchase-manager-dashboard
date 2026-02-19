@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Dashboard - API Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-top: 10px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        th {
+            background: #3498db;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #2980b9;
+        }
+        
+        td {
+            padding: 12px 15px;
+            border: 1px solid #ecf0f1;
+            background: #f9f9f9;
+        }
+        
+        tr:nth-child(even) td {
+            background: #f0f7ff;
+        }
+        
+        tr:hover td {
+            background: #e8f4f8;
+        }
+        
+        .method {
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .get {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .post {
+            background: #cfe2ff;
+            color: #084298;
+        }
+        
+        .put {
+            background: #fff3cd;
+            color: #664d03;
+        }
+        
+        .delete {
+            background: #f8d7da;
+            color: #842029;
+        }
+        
+        .code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .auth {
+            background: #e7e7ff;
+            padding: 10px;
+            border-left: 4px solid #6366f1;
+            margin-bottom: 15px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        
+        .section-header {
+            background: #ecf0f1;
+            padding: 12px 15px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-left: 4px solid #3498db;
+            font-weight: 600;
+            border-radius: 3px;
+        }
+        
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                padding: 20px;
+                max-width: 100%;
+            }
+            table {
+                page-break-inside: avoid;
+            }
+            h2 {
+                page-break-after: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Supplier Dashboard API Documentation</h1>
+        <p class="subtitle">Complete reference for all backend API endpoints. Generated for API Integration and Testing. Base URL: <span class="code">http://localhost:3000/api</span></p>
+        
+        <!-- Authentication Section -->
+        <h2>🔐 Authentication & Registration</h2>
+        <div class="auth">⚠️ Most endpoints require Bearer token authentication. Include in header: <span class="code">Authorization: Bearer {token}</span></div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/auth/register</span></td>
+                    <td>Register new supplier/vendor</td>
+                    <td>{ company_name, contact_email, password, confirm_password, company_tin?, address?, contact_person?, contact_phone?, company_website?, certificate_url? }</td>
+                    <td>{ message, vendor_id }</td>
+                </tr>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/auth/login</span></td>
+                    <td>Login supplier account</td>
+                    <td>{ contact_email, password }</td>
+                    <td>{ token, message, vendor_id }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/supplier/profile</span></td>
+                    <td>Update vendor profile (Authenticated)</td>
+                    <td>{ company_name, contact_email, company_tin?, address?, contact_person?, contact_phone?, company_website? }</td>
+                    <td>{ message, supplier: { ...updated fields } }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/auth/registrations</span></td>
+                    <td>Get all registration requests (Admin)</td>
+                    <td>N/A</td>
+                    <td>[ { vendor_id, company_name, status, created_at, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/auth/registrations/:id</span></td>
+                    <td>Get specific registration request (Admin)</td>
+                    <td>N/A</td>
+                    <td>{ vendor_id, company_name, status, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/auth/registrations/:id/approve</span></td>
+                    <td>Approve vendor registration (Admin)</td>
+                    <td>N/A</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/auth/registrations/:id/reject</span></td>
+                    <td>Reject vendor registration (Admin)</td>
+                    <td>{ rejectionReason? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/auth/registrations/:id/certificate</span></td>
+                    <td>Update certificate status (Admin)</td>
+                    <td>{ certificate_status, verified_at? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Products Section -->
+        <h2>📦 Products Management</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/products</span></td>
+                    <td>Create new product</td>
+                    <td>{ name, description, image_url?, sku?, category?, price? }</td>
+                    <td>{ message, data: { productId, ... } }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/products</span></td>
+                    <td>Get all products</td>
+                    <td>N/A (Query: ?category=, ?limit=, ?offset=)</td>
+                    <td>[ { productId, name, description, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/products/:id</span></td>
+                    <td>Get single product</td>
+                    <td>N/A</td>
+                    <td>{ productId, name, description, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/products/:id</span></td>
+                    <td>Update product</td>
+                    <td>{ name?, description?, price?, image_url?, category? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method delete">DELETE</span></td>
+                    <td><span class="code">/products/:id</span></td>
+                    <td>Delete product</td>
+                    <td>N/A</td>
+                    <td>{ message }</td>
+                </tr>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/products/price/update</span></td>
+                    <td>Update daily product price</td>
+                    <td>{ productId, price, effectiveDate? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/products/:productId/price-history</span></td>
+                    <td>Get product price history</td>
+                    <td>N/A</td>
+                    <td>[ { productId, price, effectiveDate, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/admin/vendor-products</span></td>
+                    <td>Get all vendor products (Admin)</td>
+                    <td>N/A</td>
+                    <td>[ { vendorId, productId, name, ... } ]</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Components Section -->
+        <h2>🔧 Components Management</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/vendor/components</span></td>
+                    <td>Get vendor's components (Authenticated)</td>
+                    <td>N/A (Query: ?vendorId=)</td>
+                    <td>[ { componentId, name, status, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/vendor/components-required</span></td>
+                    <td>Get required components for vendor (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>[ { componentId, title, description, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/vendor/available-components</span></td>
+                    <td>Get available components from market (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>[ { componentId, name, vendor, price, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/vendor/components</span></td>
+                    <td>Add new vendor component (Authenticated)</td>
+                    <td>{ component_name, description, price, specifications?, lead_time? }</td>
+                    <td>{ message, componentId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/vendor/add-available-component</span></td>
+                    <td>Add available component to inventory (Authenticated)</td>
+                    <td>{ componentId, quantity, price? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/components/:componentId</span></td>
+                    <td>Update vendor component (Authenticated)</td>
+                    <td>{ component_name?, description?, price?, specifications? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method delete">DELETE</span></td>
+                    <td><span class="code">/vendor/components/:componentId</span></td>
+                    <td>Delete vendor component (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>{ message }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/components/:componentId/approve</span></td>
+                    <td>Approve component (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/components/:componentId/reject</span></td>
+                    <td>Reject component (Authenticated)</td>
+                    <td>{ reason? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/products/:productId/components</span></td>
+                    <td>Get components for product</td>
+                    <td>N/A</td>
+                    <td>[ { componentId, name, specifications, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/components/:componentId/active</span></td>
+                    <td>Update component active status</td>
+                    <td>{ isActive: boolean }</td>
+                    <td>{ message }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/components/:componentCode/vendors</span></td>
+                    <td>Get vendors for component</td>
+                    <td>N/A</td>
+                    <td>[ { vendorId, name, price, rating, ... } ]</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Inventory Section -->
+        <h2>📊 Inventory Management</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/inventory</span></td>
+                    <td>Update inventory</td>
+                    <td>{ productId, quantity, warehouseLocation?, lastStockCheck? }</td>
+                    <td>{ message, inventoryId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/inventory</span></td>
+                    <td>Get all inventory</td>
+                    <td>N/A (Query: ?companyId=, ?productId=)</td>
+                    <td>[ { inventoryId, productId, quantity, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/inventory/:productId</span></td>
+                    <td>Get inventory for product</td>
+                    <td>N/A</td>
+                    <td>{ inventoryId, productId, quantity, warehouse, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/inventory/reserve</span></td>
+                    <td>Reserve inventory stock</td>
+                    <td>{ productId, quantity, orderId }</td>
+                    <td>{ message, reservationId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/inventory/low-stock</span></td>
+                    <td>Get low stock products</td>
+                    <td>N/A (Query: ?threshold=)</td>
+                    <td>[ { productId, name, quantity, reorderLevel, ... } ]</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Companies Section -->
+        <h2>🏢 Companies Management</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/companies</span></td>
+                    <td>Create company</td>
+                    <td>{ company_name, contact_email, company_tin?, address?, contact_person?, contact_phone?, logo_image?, company_website? }</td>
+                    <td>{ message, data: { companyId, ... } }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/companies</span></td>
+                    <td>Get all companies</td>
+                    <td>N/A</td>
+                    <td>[ { companyId, company_name, contact_email, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/companies/:id</span></td>
+                    <td>Get single company</td>
+                    <td>N/A</td>
+                    <td>{ companyId, company_name, contact_email, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/companies/:id</span></td>
+                    <td>Update company</td>
+                    <td>{ company_name?, contact_email?, address?, contact_person?, contact_phone?, company_website? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method delete">DELETE</span></td>
+                    <td><span class="code">/companies/:id</span></td>
+                    <td>Delete company</td>
+                    <td>N/A</td>
+                    <td>{ message }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Purchase Workflow Section -->
+        <h2>🛍️ Purchase Workflow</h2>
+        <div class="note">📌 All purchase endpoints are part of the procurement workflow between Purchase Manager (PM) and Vendors.</div>
+        
+        <div class="section-header">Purchase Enquiries</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/purchase/enquiry</span></td>
+                    <td>Create purchase enquiry (Authenticated)</td>
+                    <td>{ componentId, requiredQuantity, targetPrice?, targetDeliveryDate?, specification? }</td>
+                    <td>{ message, enquiryId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/enquiry/:enquiryId</span></td>
+                    <td>Get specific enquiry</td>
+                    <td>N/A</td>
+                    <td>{ enquiryId, componentId, status, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/enquiries</span></td>
+                    <td>Get all enquiries</td>
+                    <td>N/A (Query: ?vendorId=, ?status=)</td>
+                    <td>[ { enquiryId, componentId, status, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/purchase/enquiry/:enquiryId</span></td>
+                    <td>Update enquiry (Authenticated)</td>
+                    <td>{ status?, requiredQuantity?, specification? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/purchase/enquiry/:enquiryId/reject</span></td>
+                    <td>Reject enquiry (Authenticated)</td>
+                    <td>{ reason? }</td>
+                    <td>{ message }</td>
+                </tr>
+                <tr>
+                    <td><span class="method delete">DELETE</span></td>
+                    <td><span class="code">/purchase/enquiry/:enquiryId</span></td>
+                    <td>Delete enquiry (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>{ message }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="section-header">Quotations</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/purchase/quotation</span></td>
+                    <td>Create PM quotation (Authenticated)</td>
+                    <td>{ enquiryId, quotedQuantity, unitPrice, totalPrice, validityDate, termsConditions? }</td>
+                    <td>{ message, quotationId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/vendor/quotation</span></td>
+                    <td>Create vendor quotation (Authenticated)</td>
+                    <td>{ enquiryId, quotedQuantity, unitPrice, totalPrice, validityDate, termsConditions? }</td>
+                    <td>{ message, quotationId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/quotation/:quotationId</span></td>
+                    <td>Get single quotation</td>
+                    <td>N/A</td>
+                    <td>{ quotationId, enquiryId, unitPrice, status, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/quotations</span></td>
+                    <td>Get all quotations</td>
+                    <td>N/A (Query: ?enquiryId=, ?vendorId=, ?status=)</td>
+                    <td>[ { quotationId, enquiryId, unitPrice, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/purchase/quotation/:quotationId</span></td>
+                    <td>Update quotation (Authenticated)</td>
+                    <td>{ status?, unitPrice?, validityDate? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="section-header">Counter Quotations</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/vendor/counter-quotation</span></td>
+                    <td>Create vendor counter quotation (Authenticated)</td>
+                    <td>{ quotationId, counterUnitPrice, counterValidityDate, reason? }</td>
+                    <td>{ message, counterId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/vendor/counter-quotation/:counterId</span></td>
+                    <td>Get counter quotation</td>
+                    <td>N/A</td>
+                    <td>{ counterId, quotationId, counterUnitPrice, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/vendor/counter-quotations</span></td>
+                    <td>Get all counter quotations</td>
+                    <td>N/A (Query: ?vendorId=, ?status=)</td>
+                    <td>[ { counterId, quotationId, counterUnitPrice, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/counter-quotation/:counterId/accept</span></td>
+                    <td>Accept counter quotation (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/counter-quotation/:counterId/reject</span></td>
+                    <td>Reject counter quotation (Authenticated)</td>
+                    <td>{ reason? }</td>
+                    <td>{ message }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="section-header">Letters of Intent (LOI)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/purchase/loi</span></td>
+                    <td>Create LOI (Authenticated)</td>
+                    <td>{ quotationId, vendorId, loiValidityDate, terms?, reference? }</td>
+                    <td>{ message, loiId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/loi/:loiId</span></td>
+                    <td>Get LOI</td>
+                    <td>N/A</td>
+                    <td>{ loiId, quotationId, vendorId, status, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/lois</span></td>
+                    <td>Get all LOIs</td>
+                    <td>N/A (Query: ?vendorId=, ?status=)</td>
+                    <td>[ { loiId, vendorId, status, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/purchase/loi/:loiId</span></td>
+                    <td>Update LOI (Authenticated)</td>
+                    <td>{ status?, loiValidityDate?, terms? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/loi/:loiId/accept</span></td>
+                    <td>Vendor accept LOI (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/loi/:loiId/reject</span></td>
+                    <td>Vendor reject LOI (Authenticated)</td>
+                    <td>{ reason? }</td>
+                    <td>{ message }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="section-header">Purchase Orders</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/purchase/order</span></td>
+                    <td>Create purchase order (Authenticated)</td>
+                    <td>{ loiId, vendorId, orderDate, deliveryDate, totalAmount, items: [{componentId, quantity, unitPrice}] }</td>
+                    <td>{ message, orderId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/order/:orderId</span></td>
+                    <td>Get purchase order</td>
+                    <td>N/A</td>
+                    <td>{ orderId, vendorId, status, totalAmount, items, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/orders</span></td>
+                    <td>Get all purchase orders</td>
+                    <td>N/A (Query: ?vendorId=, ?status=, ?companyId=)</td>
+                    <td>[ { orderId, vendorId, status, totalAmount, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/purchase/order/:orderId/status</span></td>
+                    <td>Update order status (Authenticated)</td>
+                    <td>{ status: 'pending'|'confirmed'|'shipped'|'delivered'|'cancelled' }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/order/:orderId/confirm</span></td>
+                    <td>Vendor confirm order (Authenticated)</td>
+                    <td>{ confirmationDate?, estimatedDelivery? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method delete">DELETE</span></td>
+                    <td><span class="code">/purchase/order/:orderId</span></td>
+                    <td>Delete order (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>{ message }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="section-header">Payments</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/purchase/payment</span></td>
+                    <td>Create payment (Authenticated)</td>
+                    <td>{ orderId, amount, paymentMethod, referenceNumber?, dueDate? }</td>
+                    <td>{ message, paymentId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/payment/:paymentId</span></td>
+                    <td>Get payment</td>
+                    <td>N/A</td>
+                    <td>{ paymentId, orderId, amount, status, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/payments</span></td>
+                    <td>Get all payments</td>
+                    <td>N/A (Query: ?orderId=, ?status=)</td>
+                    <td>[ { paymentId, orderId, amount, status, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/purchase/payment/:paymentId/complete</span></td>
+                    <td>Mark payment complete (Authenticated)</td>
+                    <td>{ completionDate? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/purchase/payment/:paymentId/fail</span></td>
+                    <td>Mark payment failed (Authenticated)</td>
+                    <td>{ failureReason? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/payment/:paymentId/receipt</span></td>
+                    <td>Send payment receipt (Authenticated)</td>
+                    <td>{ receiptUrl?, receiptDate? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/purchase/order/:orderId/payment-summary</span></td>
+                    <td>Get order payment summary</td>
+                    <td>N/A</td>
+                    <td>{ orderId, totalAmount, paidAmount, pendingAmount, ... }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="section-header">Vendor Invoices</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/vendor/invoice</span></td>
+                    <td>Create vendor invoice (Authenticated)</td>
+                    <td>{ orderId, invoiceDate, dueDate, items: [{description, quantity, unitPrice}], totalAmount }</td>
+                    <td>{ message, invoiceId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/vendor/invoice/:invoiceId</span></td>
+                    <td>Get invoice</td>
+                    <td>N/A</td>
+                    <td>{ invoiceId, orderId, invoiceDate, status, totalAmount, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/vendor/invoices</span></td>
+                    <td>Get all invoices</td>
+                    <td>N/A (Query: ?vendorId=, ?status=)</td>
+                    <td>[ { invoiceId, vendorId, status, totalAmount, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/vendor/invoice/:invoiceId/summary</span></td>
+                    <td>Get invoice summary</td>
+                    <td>N/A</td>
+                    <td>{ invoiceId, totalAmount, taxAmount, netAmount, ... }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/invoice/:invoiceId/received</span></td>
+                    <td>Mark invoice received (Authenticated)</td>
+                    <td>{ receivedDate? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/invoice/:invoiceId/accept</span></td>
+                    <td>Accept invoice (Authenticated)</td>
+                    <td>N/A</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/invoice/:invoiceId/reject</span></td>
+                    <td>Reject invoice (Authenticated)</td>
+                    <td>{ reason? }</td>
+                    <td>{ message }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/vendor/invoice/:invoiceId/paid</span></td>
+                    <td>Mark invoice paid (Authenticated)</td>
+                    <td>{ paidDate?, paymentMethod? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Other Sections -->
+        <h2>📋 Other Endpoints</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                    <th>Request Body</th>
+                    <th>Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/requests</span></td>
+                    <td>Create company request</td>
+                    <td>{ companyId, requestType, details }</td>
+                    <td>{ message, requestId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/requests</span></td>
+                    <td>Get all requests</td>
+                    <td>N/A (Query: ?companyId=, ?status=)</td>
+                    <td>[ { requestId, companyId, status, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/requests/company/:companyId</span></td>
+                    <td>Get company requests</td>
+                    <td>N/A</td>
+                    <td>[ { requestId, requestType, status, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/requests/:id</span></td>
+                    <td>Update request status</td>
+                    <td>{ status }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method delete">DELETE</span></td>
+                    <td><span class="code">/requests/:id</span></td>
+                    <td>Delete request</td>
+                    <td>N/A</td>
+                    <td>{ message }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/required-components</span></td>
+                    <td>Get required components (PM)</td>
+                    <td>N/A</td>
+                    <td>[ { componentId, title, description, ... } ]</td>
+                </tr>
+                <tr>
+                    <td><span class="method post">POST</span></td>
+                    <td><span class="code">/required-components</span></td>
+                    <td>Create required component</td>
+                    <td>{ title, description, specification?, unit?, quantity? }</td>
+                    <td>{ message, componentId }</td>
+                </tr>
+                <tr>
+                    <td><span class="method put">PUT</span></td>
+                    <td><span class="code">/required-components/:id</span></td>
+                    <td>Update required component</td>
+                    <td>{ title?, description?, specification?, quantity? }</td>
+                    <td>{ message, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><span class="method delete">DELETE</span></td>
+                    <td><span class="code">/required-components/:id</span></td>
+                    <td>Delete required component</td>
+                    <td>N/A</td>
+                    <td>{ message }</td>
+                </tr>
+                <tr>
+                    <td><span class="method get">GET</span></td>
+                    <td><span class="code">/analytics/purchase-manager</span></td>
+                    <td>Get PM analytics (Authenticated)</td>
+                    <td>N/A (Query: ?period=month|week|year)</td>
+                    <td>{ totalOrders, totalSpent, topVendors, categoryBreakdown, ... }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- Error Codes Section -->
+        <h2>⚠️ Common Error Codes</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Status Code</th>
+                    <th>Meaning</th>
+                    <th>Example Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>200</strong></td>
+                    <td>Success - Request succeeded</td>
+                    <td>{ success: true, data: {...} }</td>
+                </tr>
+                <tr>
+                    <td><strong>201</strong></td>
+                    <td>Created - Resource created successfully</td>
+                    <td>{ message: 'Created successfully', id: '...' }</td>
+                </tr>
+                <tr>
+                    <td><strong>400</strong></td>
+                    <td>Bad Request - Invalid input or missing required fields</td>
+                    <td>{ error: 'Company name and email are required' }</td>
+                </tr>
+                <tr>
+                    <td><strong>401</strong></td>
+                    <td>Unauthorized - Missing or invalid authentication token</td>
+                    <td>{ error: 'Access token required' }</td>
+                </tr>
+                <tr>
+                    <td><strong>403</strong></td>
+                    <td>Forbidden - Token invalid or expired</td>
+                    <td>{ error: 'Invalid or expired token' }</td>
+                </tr>
+                <tr>
+                    <td><strong>404</strong></td>
+                    <td>Not Found - Resource doesn't exist</td>
+                    <td>{ error: 'Company not found' }</td>
+                </tr>
+                <tr>
+                    <td><strong>500</strong></td>
+                    <td>Server Error - Internal server error</td>
+                    <td>{ error: 'error message' }</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="footer">
+            <p>🔒 <strong>Security Note:</strong> Always include authentication token in Authorization header for protected endpoints. Use HTTPS in production.</p>
+            <p>📅 Generated: February 2026 | Version: 1.0 | API Base URL: http://localhost:3000/api</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,573 @@
+const supabase = require('../config/supabase');
+const { v4: uuidv4 } = require('uuid');
+const firebaseAuthUtils = require('../config/firebaseAuth');
+const { auth: firebaseAuth } = require('../config/firebase');
+
+// Register Supplier
+exports.registerSupplier = async (req, res) => {
+  try {
+    const {
+      company_name,
+      company_tin,
+      address,
+      contact_person,
+      contact_email,
+      contact_phone,
+      company_website,
+      certificate_url,
+    } = req.body;
+
+    // Validation
+    if (!company_name || !contact_email) {
+      return res.status(400).json({ error: 'Company name and email are required' });
+    }
+
+    // Check if email already exists
+    const { data: existingVendor, error: checkError } = await supabase
+      .from('vendorregistration')
+      .select('*')
+      .eq('contact_email', contact_email)
+      .single();
+
+    if (!checkError && existingVendor) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    // Create Firebase user WITHOUT password
+    let firebaseUser;
+    try {
+      firebaseUser = await firebaseAuthUtils.createFirebaseUserNoPassword(contact_email, company_name);
+    } catch (firebaseError) {
+      console.error('Firebase user creation error:', firebaseError.message);
+      return res.status(400).json({ 
+        error: firebaseError.message || 'Failed to create account' 
+      });
+    }
+
+    // Create registration request in database
+    const vendorId = uuidv4();
+    const { data, error } = await supabase
+      .from('vendorregistration')
+      .insert([
+        {
+          vendor_id: vendorId,
+          firebase_uid: firebaseUser.uid,
+          company_name,
+          company_tin: company_tin || null,
+          address: address || null,
+          contact_person: contact_person || null,
+          contact_email,
+          contact_phone: contact_phone || null,
+          company_website: company_website || null,
+          certificate_url: certificate_url || null,
+          certificate_status: 'pending',
+          certificate_verified_at: null,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          approved_at: null,
+        },
+      ])
+      .select();
+
+    if (error) {
+      // Clean up Firebase user if database insert fails
+      try {
+        await firebaseAuthUtils.deleteFirebaseUser(firebaseUser.uid);
+      } catch (err) {
+        console.error('Error cleaning up Firebase user:', err);
+      }
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Send password setup email so vendor can set their own password
+    try {
+      await firebaseAuthUtils.sendPasswordResetEmail(contact_email);
+    } catch (emailErr) {
+      console.error('Error sending password reset email:', emailErr.message);
+      // Don't fail if email sending fails, registration is still successful
+    }
+
+    res.status(201).json({
+      message: 'Registration submitted successfully. Check your email to set password and wait for admin approval.',
+      vendor_id: vendorId,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Unified Login - Auto-detects Vendor or Admin
+exports.loginSupplier = async (req, res) => {
+  try {
+    const { contact_email, email, password } = req.body;
+    const userEmail = contact_email || email; // Support both field names
+
+    if (!userEmail || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Step 1: Check if user is a VENDOR
+    const { data: vendor, error: vendorError } = await supabase
+      .from('vendorregistration')
+      .select('*')
+      .eq('contact_email', userEmail)
+      .maybeSingle();
+
+    if (vendor) {
+      // VENDOR LOGIN FLOW
+      // Check if approved
+      if (vendor.status !== 'approved') {
+        return res.status(403).json({
+          error: `Your registration is ${vendor.status}. Please wait for admin approval.`,
+        });
+      }
+
+      // Verify email and password against Firebase
+      let firebaseUser;
+      try {
+        firebaseUser = await firebaseAuthUtils.verifyEmailPassword(userEmail, password);
+      } catch (firebaseError) {
+        console.error('Firebase authentication failed:', firebaseError.message);
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      // Sync Firebase UID if not already stored
+      if (!vendor.firebase_uid || vendor.firebase_uid !== firebaseUser.uid) {
+        await supabase
+          .from('vendorregistration')
+          .update({ firebase_uid: firebaseUser.uid })
+          .eq('vendor_id', vendor.vendor_id);
+      }
+
+      // Set custom claims for vendor
+      await firebaseAuthUtils.setCustomClaims(firebaseUser.uid, {
+        vendor: true,
+        vendor_id: vendor.vendor_id,
+        company_name: vendor.company_name,
+      });
+
+      // Get fresh ID token that includes the custom claims
+      let freshIdToken = firebaseUser.idToken;
+      if (firebaseUser.refreshToken) {
+        try {
+          const refreshResult = await firebaseAuthUtils.refreshIdToken(firebaseUser.refreshToken);
+          freshIdToken = refreshResult.idToken;
+        } catch (refreshError) {
+          console.warn('Could not refresh ID token:', refreshError.message);
+        }
+      }
+
+      // Generate Firebase Custom Token
+      const customToken = await firebaseAuthUtils.createCustomToken(firebaseUser.uid, {
+        vendor: true,
+        vendor_id: vendor.vendor_id,
+        company_name: vendor.company_name,
+      });
+
+      return res.json({
+        message: 'Login successful',
+        userType: 'vendor',
+        customToken,
+        idToken: freshIdToken,
+        vendor: {
+          vendor_id: vendor.vendor_id,
+          company_name: vendor.company_name,
+          company_tin: vendor.company_tin,
+          address: vendor.address,
+          contact_person: vendor.contact_person,
+          contact_email: vendor.contact_email,
+          contact_phone: vendor.contact_phone,
+          company_website: vendor.company_website,
+          firebase_uid: firebaseUser.uid,
+        },
+      });
+    }
+
+    // Step 2: Check if user is an ADMIN
+    const { data: admin, error: adminError } = await supabase
+      .from('purchase_admin')
+      .select('*')
+      .eq('email', userEmail)
+      .maybeSingle();
+
+    if (admin) {
+      // ADMIN LOGIN FLOW
+      // Check if admin is active
+      if (admin.status !== 'active') {
+        return res.status(403).json({
+          error: `Admin account is ${admin.status}. Please contact support.`,
+        });
+      }
+
+      // Verify email and password against Firebase
+      let firebaseUser;
+      try {
+        firebaseUser = await firebaseAuthUtils.verifyEmailPassword(userEmail, password);
+      } catch (firebaseError) {
+        console.error('Firebase authentication failed:', firebaseError.message);
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      // Sync Firebase UID if not already stored
+      if (!admin.firebase_uid || admin.firebase_uid !== firebaseUser.uid) {
+        await supabase
+          .from('purchase_admin')
+          .update({ firebase_uid: firebaseUser.uid })
+          .eq('admin_id', admin.admin_id);
+      }
+
+      // Set custom claims for admin
+      await firebaseAuthUtils.setCustomClaims(firebaseUser.uid, {
+        admin: true,
+        role: admin.role,
+        admin_id: admin.admin_id,
+      });
+
+      // Get fresh ID token that includes the custom claims
+      let freshIdToken = firebaseUser.idToken;
+      if (firebaseUser.refreshToken) {
+        try {
+          const refreshResult = await firebaseAuthUtils.refreshIdToken(firebaseUser.refreshToken);
+          freshIdToken = refreshResult.idToken;
+        } catch (refreshError) {
+          console.warn('Could not refresh ID token:', refreshError.message);
+        }
+      }
+
+      // Generate Firebase Custom Token
+      const customToken = await firebaseAuthUtils.createCustomToken(firebaseUser.uid, {
+        admin: true,
+        role: admin.role,
+        admin_id: admin.admin_id,
+      });
+
+      // Update last login
+      await supabase
+        .from('purchase_admin')
+        .update({ last_login: new Date().toISOString() })
+        .eq('admin_id', admin.admin_id);
+
+      return res.json({
+        message: 'Login successful',
+        userType: 'admin',
+        customToken,
+        idToken: freshIdToken,
+        admin: {
+          admin_id: admin.admin_id,
+          email: admin.email,
+          name: admin.name,
+          phone: admin.phone,
+          company_id: admin.company_id,
+          role: admin.role,
+          permissions: admin.permissions || [],
+          firebase_uid: firebaseUser.uid,
+        },
+      });
+    }
+
+    // Step 3: User not found in either table
+    return res.status(401).json({ error: 'Invalid email or password' });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get All Registration Requests (Admin)
+exports.getRegistrationRequests = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let query = supabase.from('vendorregistration').select('*');
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get Single Registration Request
+exports.getRegistrationRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('vendorregistration')
+      .select('*')
+      .eq('vendor_id', id)
+      .single();
+
+    if (error) {
+      return res.status(404).json({ error: 'Registration request not found' });
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Approve Registration (Admin)
+exports.approveRegistration = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('vendorregistration')
+      .update({
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+      })
+      .eq('vendor_id', id)
+      .select();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Create or link a company record
+    if (data && data[0]) {
+      const vendor = data[0];
+
+      const { data: existingCompany } = await supabase
+        .from('Company')
+        .select('companyId, vendor_id')
+        .eq('companyId', vendor.vendor_id)
+        .single();
+
+      if (existingCompany) {
+        if (!existingCompany.vendor_id) {
+          await supabase
+            .from('Company')
+            .update({ vendor_id: vendor.vendor_id })
+            .eq('companyId', vendor.vendor_id);
+        }
+      } else {
+        await supabase.from('Company').insert([
+          {
+            companyId: vendor.vendor_id,
+            vendor_id: vendor.vendor_id,
+            company_name: vendor.company_name,
+            company_tin: vendor.company_tin,
+            address: vendor.address,
+            contact_person: vendor.contact_person,
+            contact_email: vendor.contact_email,
+            contact_phone: vendor.contact_phone,
+            company_website: vendor.company_website,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      }
+    }
+
+    res.json({
+      message: 'Registration approved successfully',
+      data: data[0],
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Reject Registration (Admin)
+exports.rejectRegistration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const { data, error } = await supabase
+      .from('vendorregistration')
+      .update({
+        status: 'rejected',
+        rejection_reason: reason || null,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('vendor_id', id)
+      .select();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({
+      message: 'Registration rejected',
+      data: data[0],
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update vendor certificate status (Admin)
+exports.updateCertificateStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowed = ['pending', 'approved', 'rejected'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: 'Invalid certificate status' });
+    }
+
+    const updatePayload = {
+      certificate_status: status,
+      certificate_verified_at: status === 'approved' ? new Date().toISOString() : null,
+    };
+
+    const { data, error } = await supabase
+      .from('vendorregistration')
+      .update(updatePayload)
+      .eq('vendor_id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ message: 'Certificate status updated', data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+// Update Vendor Profile (by authenticated vendor)
+exports.updateVendorProfile = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Decode token to get vendor_id
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const vendorId = decoded.vendor_id;
+
+    const {
+      company_name,
+      company_tin,
+      address,
+      contact_person,
+      contact_email,
+      contact_phone,
+      company_website,
+    } = req.body;
+
+    // Validate required fields
+    if (!company_name || !contact_email) {
+      return res.status(400).json({ error: 'Company name and email are required' });
+    }
+
+    // Update vendor profile
+    const { data, error } = await supabase
+      .from('vendorregistration')
+      .update({
+        company_name,
+        company_tin: company_tin || null,
+        address: address || null,
+        contact_person: contact_person || null,
+        contact_email,
+        contact_phone: contact_phone || null,
+        company_website: company_website || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('vendor_id', vendorId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({
+      message: 'Profile updated successfully',
+      supplier: data,
+    });
+  } catch (error) {
+    console.error('Error updating vendor profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+// Middleware to authenticate Firebase token
+exports.authenticateToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    // Verify Firebase ID token
+    const decodedToken = await firebaseAuth.verifyIdToken(token);
+
+    // Check if this is an admin or vendor based on custom claims
+    if (decodedToken.admin) {
+      // Admin user - fetch admin details from database
+      const { data: admin } = await supabase
+        .from('purchase_admin')
+        .select('*')
+        .eq('firebase_uid', decodedToken.uid)
+        .single();
+
+      req.user = {
+        uid: decodedToken.uid,
+        email: decodedToken.email,
+        type: 'admin',
+        admin_id: admin?.admin_id,
+        name: admin?.name,
+        role: admin?.role,
+        ...decodedToken,
+      };
+    } else {
+      // Vendor user - fetch vendor details from database
+      const { data: vendor } = await supabase
+        .from('vendorregistration')
+        .select('*')
+        .eq('firebase_uid', decodedToken.uid)
+        .single();
+
+      if (!vendor) {
+        return res.status(403).json({ error: 'Vendor account not found' });
+      }
+
+      // Check if vendor is approved
+      if (vendor.status !== 'approved') {
+        return res.status(403).json({ 
+          error: `Your account is ${vendor.status}. Please wait for admin approval.` 
+        });
+      }
+
+      req.user = {
+        uid: decodedToken.uid,
+        email: decodedToken.email,
+        type: 'vendor',
+        vendor_id: vendor?.vendor_id,
+        company_name: vendor?.company_name,
+        ...decodedToken,
+      };
+    }
+
+    next();
+  } catch (error) {
+    console.error('Token verification failed:', error.message);
+    
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({ error: 'Token expired. Please log in again.' });
+    }
+    if (error.code === 'auth/argument-error') {
+      return res.status(401).json({ error: 'Invalid token format' });
+    }
+    
+    res.status(403).json({ error: 'Invalid or expired token' });
+  }
+};

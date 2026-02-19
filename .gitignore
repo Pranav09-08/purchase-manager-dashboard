@@ -1,0 +1,59 @@
+# -----------------------------
+# Dependencies
+# -----------------------------
+node_modules/
+.pnp
+.pnp.js
+
+# -----------------------------
+# Logs
+# -----------------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# -----------------------------
+# Environment variables
+# -----------------------------
+.env
+.env.*
+!.env.example
+
+# -----------------------------
+# Build outputs
+# -----------------------------
+dist/
+build/
+.next/
+out/
+
+# -----------------------------
+# OS / Editor files
+# -----------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# -----------------------------
+# Firebase / Google credentials
+# -----------------------------
+firebase-service-account.json
+*service-account*.json
+google-credentials.json
+
+# -----------------------------
+# Misc
+# -----------------------------
+coverage/
+tmp/
+temp/
+.cache/
+
+# -----------------------------
+# TypeScript
+# -----------------------------
+*.tsbuildinfo
