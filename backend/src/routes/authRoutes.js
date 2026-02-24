@@ -6,14 +6,14 @@ const adminAuthController = require('../controllers/adminAuthController');
 const router = express.Router();
 
 // Public routes
-router.post('/auth/register', authController.registerSupplier);
-router.post('/auth/login', authController.loginSupplier); // Unified login for both vendors and admins
+router.post('/auth/register', authController.registerVendor);
+router.post('/auth/login', authController.loginVendor); // Unified login for both vendors and admins
 
 // Admin authentication routes (DEPRECATED - use /auth/login instead)
 router.post('/auth/admin-login', adminAuthController.loginAdmin);
 
 // Vendor routes (authenticated)
-router.put('/supplier/profile', authController.authenticateToken, authController.updateVendorProfile);
+router.put('/vendor/profile', authController.authenticateToken, authController.updateVendorProfile);
 
 // Admin management routes (authenticated - requires super_admin)
 router.get('/auth/admins', authController.authenticateToken, adminAuthController.getAllAdmins);

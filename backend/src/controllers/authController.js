@@ -3,8 +3,8 @@ const { v4: uuidv4 } = require('uuid');
 const firebaseAuthUtils = require('../config/firebaseAuth');
 const { auth: firebaseAuth } = require('../config/firebase');
 
-// Register Supplier
-exports.registerSupplier = async (req, res) => {
+// Register Vendor
+exports.registerVendor = async (req, res) => {
   try {
     const {
       company_name,
@@ -97,7 +97,7 @@ exports.registerSupplier = async (req, res) => {
 };
 
 // Unified Login - Auto-detects Vendor or Admin
-exports.loginSupplier = async (req, res) => {
+exports.loginVendor = async (req, res) => {
   try {
     const { contact_email, email, password } = req.body;
     const userEmail = contact_email || email; // Support both field names
@@ -490,7 +490,7 @@ exports.updateVendorProfile = async (req, res) => {
 
     res.json({
       message: 'Profile updated successfully',
-      supplier: data,
+      vendor: data,
     });
   } catch (error) {
     console.error('Error updating vendor profile:', error);
