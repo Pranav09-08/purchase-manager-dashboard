@@ -149,12 +149,13 @@ class PMDrawer extends StatelessWidget {
 
 	// 🔹 Drawer item builder
 	Widget _item(
-		BuildContext context,
-		IconData icon,
-		String title,
-		String route,
-	) {
+			BuildContext context,
+			IconData icon,
+			String title,
+			String route,
+			) {
 		final bool selected = currentRoute == route;
+
 		return ListTile(
 			leading: Icon(
 				icon,
@@ -169,13 +170,8 @@ class PMDrawer extends StatelessWidget {
 			),
 			selected: selected,
 			onTap: () {
-				if (!selected) {
-					Navigator.pop(context);
-					if (onSelect != null) {
-						onSelect!(route);
-					}
-				} else {
-					Navigator.pop(context);
+				if (onSelect != null) {
+					onSelect!(route); // parent will close drawer
 				}
 			},
 		);

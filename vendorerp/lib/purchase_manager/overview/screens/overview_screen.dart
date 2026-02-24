@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../registrations/screens/vendor_detail_screen.dart';
+import '../../vendor/screens/vendor_detail_screen.dart';
+import '../../vendor/screens/vendor_list_screen.dart';
 import '../services/overview_service.dart';
-import '../../registrations/screens/vendor_list_screen.dart';
 
 
 class OverviewScreen extends StatefulWidget {
@@ -88,9 +88,13 @@ class _OverviewScreenState extends State<OverviewScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        int gridCols = 2;
-        if (width < 400) gridCols = 1;
-        if (width > 700) gridCols = 4;
+        // Font size tweaks
+        final double headerFontSize = width < 400 ? 24 : 34;
+        final double subHeaderFontSize = width < 400 ? 14 : 18;
+        final double cardLabelFontSize = width < 400 ? 13 : 16;
+        final double cardValueFontSize = width < 400 ? 22 : 28;
+        final double cardIconSize = width < 400 ? 26 : 32;
+        final double cardPadding = width < 400 ? 8 : 12;
 
         return SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -104,8 +108,8 @@ class _OverviewScreenState extends State<OverviewScreen> {
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(
-                  vertical: width < 400 ? 16 : 28,
-                  horizontal: width < 400 ? 12 : 24,
+                  vertical: width < 400 ? 18 : 32,
+                  horizontal: width < 400 ? 14 : 28,
                 ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -116,7 +120,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.blue[900]!.withOpacity(0.18),
+                      color: Colors.blue[900]!.withAlpha((0.18 * 255).toInt()),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -125,108 +129,91 @@ class _OverviewScreenState extends State<OverviewScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Overview', style: TextStyle(fontSize: width < 400 ? 22 : 32, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5)),
+                    Text('Overview', style: TextStyle(fontSize: headerFontSize, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5)),
                     SizedBox(height: width < 400 ? 4 : 10),
-                    Text('Snapshot of supplier activity and registrations.', style: TextStyle(fontSize: width < 400 ? 13 : 16, color: Colors.white70)),
+                    Text('Snapshot of supplier activity and registrations.', style: TextStyle(fontSize: subHeaderFontSize, color: Colors.white70)),
                   ],
                 ),
               ),
               SizedBox(height: width < 400 ? 12 : 28),
 
-              // Stat Card Grid (admin features, modern theme)
-              // Responsive stat cards grid (clickable)
+              // Stat Card Grid (2x2, like reference image)
               Padding(
                 padding: EdgeInsets.only(bottom: width < 400 ? 8 : 14),
-                child: LayoutBuilder(
-                  builder: (context, gridConstraints) {
-                    return Wrap(
-                      spacing: width < 400 ? 8 : 14,
-                      runSpacing: width < 400 ? 8 : 14,
-                      children: statCards.map((item) {
-                        return SizedBox(
-                          width: (gridConstraints.maxWidth / gridCols) - (width < 400 ? 8 : 14),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () {
-                              // Navigate to vendor list screen with filter
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => VendorListScreen(
-                                    filter: item['filter'] is String ? item['filter'] as String : null,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              constraints: const BoxConstraints(minHeight: 80),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: item['color'] is Color ? item['color'] as Color : Colors.blueGrey.shade100,
-                                  width: 1.0,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: (item['color'] as Color?)?.withOpacity(0.06) ?? Colors.blueGrey.withOpacity(0.05),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: width < 400 ? 10 : 14,
-                                vertical: width < 400 ? 8 : 10,
-                              ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(item['icon'] as IconData, color: item['color'] is Color ? item['color'] as Color : Colors.blueGrey, size: width < 400 ? 18 : 22),
-                                        const Spacer(),
-                                        Text(
-                                          item['value'].toString(),
-                                          style: TextStyle(
-                                            fontSize: width < 400 ? 16 : 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: item['color'] is Color ? item['color'] as Color : Colors.black,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: width < 400 ? 2 : 4),
-                                    Text(
-                                      item['label'].toString(),
-                                      style: TextStyle(
-                                        fontSize: width < 400 ? 11 : 13,
-                                        color: item['color'] is Color ? item['color'] as Color : Colors.black87,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    if (item['desc'] != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 1.0),
-                                        child: Text(
-                                          item['desc'].toString(),
-                                          style: TextStyle(
-                                            fontSize: width < 400 ? 8.5 : 11,
-                                            color: (item['color'] as Color?)?.withOpacity(0.7) ?? Colors.blueGrey,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: width < 400 ? 10 : 18,
+                  crossAxisSpacing: width < 400 ? 10 : 18,
+                  childAspectRatio: 1.25,
+                  children: statCards.map((item) {
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => VendorListScreen(
+                              filter: item['filter'] is String ? item['filter'] as String : null,
                             ),
                           ),
                         );
-                      }).toList(),
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: Colors.grey.shade200,
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blueGrey.withAlpha((0.07 * 255).toInt()),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        padding: EdgeInsets.all(cardPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item['label'].toString(),
+                                    style: TextStyle(
+                                      fontSize: cardLabelFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  item['icon'] as IconData,
+                                  color: item['color'] is Color ? item['color'] as Color : Colors.blue,
+                                  size: cardIconSize,
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              item['value'].toString(),
+                              style: TextStyle(
+                                fontSize: cardValueFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
-                  },
+                  }).toList(),
                 ),
               ),
               SizedBox(height: width < 400 ? 16 : 32),

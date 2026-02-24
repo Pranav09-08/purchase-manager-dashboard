@@ -1,8 +1,8 @@
 
 import 'package:flutter/material.dart';
 import '../../overview/screens/overview_screen.dart';
-import '../../registrations/screens/vendor_list_screen.dart';
 import '../../shared/widgets/pm_drawer.dart';
+import '../../vendor/screens/vendor_list_screen.dart';
 
 
 class AdminDashboard extends StatefulWidget {
@@ -20,53 +20,70 @@ class _AdminDashboardState extends State<AdminDashboard> {
     switch (route) {
       case '/overview':
         return const OverviewScreen();
-      case '/products':
-        return const Center(child: Text('Products'));
-      case '/components':
-        return const Center(child: Text('Components'));
-      case '/required-components':
-        return const Center(child: Text('Required Components'));
       case '/registrations':
         print('[AdminDashboard] Building VendorListScreen');
-        return const VendorListScreen();
+        return const VendorListScreen(showAppBar: false);
+      case '/products':
+        return _placeholderScreen('Products');
+      case '/components':
+        return _placeholderScreen('Components');
+      case '/required-components':
+        return _placeholderScreen('Required Components');
       case '/vendor-components':
-        return const Center(child: Text('Vendor Components'));
+        return _placeholderScreen('Vendor Components');
       case '/enquiries':
-        return const Center(child: Text('Enquiries'));
+        return _placeholderScreen('Enquiries');
       case '/quotations':
-        return const Center(child: Text('Quotations'));
+        return _placeholderScreen('Quotations');
       case '/lois':
-        return const Center(child: Text('LOIs'));
+        return _placeholderScreen('LOIs');
       case '/orders':
-        return const Center(child: Text('Orders'));
+        return _placeholderScreen('Orders');
       case '/payments':
-        return const Center(child: Text('Payments'));
+        return _placeholderScreen('Payments');
       case '/receipts':
-        return const Center(child: Text('Receipts'));
+        return _placeholderScreen('Receipts');
       case '/invoices':
-        return const Center(child: Text('Invoices'));
+        return _placeholderScreen('Invoices');
       case '/analytics':
-        return const Center(child: Text('Analytics'));
+        return _placeholderScreen('Analytics');
       case '/requests':
-        return const Center(child: Text('Requests'));
+        return _placeholderScreen('Requests');
       default:
-        return const Center(child: Text('Unknown Tab'));
+        return _placeholderScreen('Unknown Tab');
     }
   }
 
+  Widget _placeholderScreen(String label) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0B1C2D),
+        elevation: 0,
+        title: Text(label, style: const TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(child: Text('This feature is coming soon!', style: TextStyle(fontSize: 18, color: Colors.grey[700]))),
+    );
+  }
+
   void _onSelect(String route) {
-    print('[AdminDashboard] Drawer item selected: $route');
     setState(() {
       _currentRoute = route;
     });
-    Navigator.of(context).pop();
+
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context); // closes drawer safely
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Purchase Manager'),
+        backgroundColor: const Color(0xFF0B1C2D), // AppColors.navy
+        elevation: 0,
+        title: const Text('Purchase Manager', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       drawer: PMDrawer(
         currentRoute: _currentRoute,
