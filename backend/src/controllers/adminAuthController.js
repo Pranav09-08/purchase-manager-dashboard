@@ -9,6 +9,11 @@ const firebaseAuthUtils = require('../config/firebaseAuth');
  * Returns: Firebase Custom Token
  */
 exports.loginAdmin = async (req, res) => {
+    console.log('--- Admin Login Attempt ---');
+    console.log('Email:', req.body?.email);
+    // Log environment variable presence
+    console.log('FIREBASE_API_KEY present:', !!process.env.FIREBASE_API_KEY);
+    // Log Supabase query
   try {
     const { email, password } = req.body;
 
@@ -19,14 +24,17 @@ exports.loginAdmin = async (req, res) => {
       });
     }
 
-    // Find admin by email in database
+    // Find admin by email in database (new schema)
     const { data: admin, error: queryError } = await supabase
-      .from('purchase_admin')
+        .from('purchaseManager')
       .select('*')
       .eq('email', email)
       .single();
 
+    console.log('Supabase admin lookup:', { admin, queryError });
+
     if (queryError || !admin) {
+      console.error('Admin not found in Supabase or query error:', queryError);
       return res.status(401).json({ 
         error: 'Invalid email or password' 
       });
@@ -34,6 +42,7 @@ exports.loginAdmin = async (req, res) => {
 
     // Check if admin is active
     if (admin.status !== 'active') {
+      console.error('Admin found but not active:', admin.status);
       return res.status(403).json({
         error: `Admin account is ${admin.status}. Please contact support.`,
       });
@@ -44,26 +53,23 @@ exports.loginAdmin = async (req, res) => {
     try {
       const fbAuth = await firebaseAuthUtils.verifyEmailPassword(email, password);
       firebaseUser = fbAuth;
+      console.log('Firebase Auth Success:', fbAuth);
     } catch (firebaseError) {
-      console.error('Firebase authentication failed:', firebaseError.message);
+      console.error('Firebase authentication failed:', firebaseError.message, firebaseError.response?.data);
       return res.status(401).json({ 
         error: 'Invalid email or password' 
       });
     }
 
-    // Sync Firebase UID if not already stored
-    if (!admin.firebase_uid || admin.firebase_uid !== firebaseUser.uid) {
-      await supabase
-        .from('purchase_admin')
-        .update({ firebase_uid: firebaseUser.uid })
-        .eq('admin_id', admin.admin_id);
-    }
+    // Sync Firebase UID if not already stored (new schema: store in profile_image if needed, or skip if not used)
+    // If you want to store firebase UID, add a new field or skip this step.
 
-    // Set custom claims for admin
+    // Set custom claims for admin (use purchaseManagerId as unique id)
     await firebaseAuthUtils.setCustomClaims(firebaseUser.uid, {
       admin: true,
-      role: admin.role,
-      admin_id: admin.admin_id,
+      purchaseManagerId: admin.purchaseManagerId,
+      email: admin.email,
+      status: admin.status,
     });
 
     // Get fresh ID token that includes the custom claims
@@ -81,29 +87,31 @@ exports.loginAdmin = async (req, res) => {
     // Generate Firebase Custom Token (unused but kept for reference)
     const customToken = await firebaseAuthUtils.createCustomToken(firebaseUser.uid, {
       admin: true,
-      role: admin.role,
-      admin_id: admin.admin_id,
+      purchaseManagerId: admin.purchaseManagerId,
+      email: admin.email,
+      status: admin.status,
     });
 
-    // Update last login
+    // Update updated_at
     await supabase
-      .from('purchase_admin')
-      .update({ last_login: new Date().toISOString() })
-      .eq('admin_id', admin.admin_id);
+        .from('purchaseManager')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('purchaseManagerId', admin.purchaseManagerId);
 
     res.json({
       message: 'Login successful',
       customToken,
       idToken: freshIdToken,
       admin: {
-        admin_id: admin.admin_id,
+        purchaseManagerId: admin.purchaseManagerId,
         email: admin.email,
         name: admin.name,
         phone: admin.phone,
-        company_id: admin.company_id,
-        role: admin.role,
-        permissions: admin.permissions || [],
-        firebase_uid: firebaseUser.uid,
+        companyId: admin.companyId,
+        status: admin.status,
+        created_at: admin.created_at,
+        updated_at: admin.updated_at,
+        profile_image: admin.profile_image,
       },
     });
   } catch (error) {
@@ -119,7 +127,7 @@ exports.getAllAdmins = async (req, res) => {
   try {
     const { data: admins, error } = await supabase
       .from('purchase_admin')
-      .select('admin_id, username, email, full_name, role, status, last_login, created_at')
+      .select('purchaseManagerId, email, name, phone, companyId, status, profile_image, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -144,9 +152,9 @@ exports.createAdmin = async (req, res) => {
       email,
       name,
       phone,
-      company_id,
-      role = 'admin',
-      permissions = [],
+      companyId,
+      status = 'active',
+      profile_image = null,
     } = req.body;
 
     // Validation
@@ -158,8 +166,8 @@ exports.createAdmin = async (req, res) => {
 
     // Check if email already exists in database
     const { data: existingAdmin } = await supabase
-      .from('purchase_admin')
-      .select('admin_id')
+        .from('purchaseManager')
+      .select('purchaseManagerId')
       .eq('email', email)
       .single();
 
@@ -182,22 +190,20 @@ exports.createAdmin = async (req, res) => {
 
     // Create admin record in database
     const { data: newAdmin, error: dbError } = await supabase
-      .from('purchase_admin')
+        .from('purchaseManager')
       .insert([
         {
-          firebase_uid: firebaseUser.uid,
           email,
           name,
           phone: phone || null,
-          company_id: company_id || null,
-          role,
-          permissions,
-          status: 'active',
+          companyId: companyId || null,
+          status,
+          profile_image,
           created_at: new Date().toISOString(),
-          upated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       ])
-      .select('admin_id, email, name, phone, company_id, role, status')
+      .select('purchaseManagerId, email, name, phone, companyId, status, profile_image, created_at, updated_at')
       .single();
 
     if (dbError) {
@@ -213,8 +219,9 @@ exports.createAdmin = async (req, res) => {
     // Set custom claims
     await firebaseAuthUtils.setCustomClaims(firebaseUser.uid, {
       admin: true,
-      role,
-      admin_id: newAdmin.admin_id,
+      purchaseManagerId: newAdmin.purchaseManagerId,
+      email: newAdmin.email,
+      status: newAdmin.status,
     });
 
     // Send password reset email so admin can set their own password
@@ -246,7 +253,7 @@ exports.updateAdmin = async (req, res) => {
 
     // Get current admin
     const { data: admin, error: fetchError } = await supabase
-      .from('purchase_admin')
+        .from('purchaseManager')
       .select('*')
       .eq('admin_id', adminId)
       .single();
@@ -280,7 +287,7 @@ exports.updateAdmin = async (req, res) => {
     if (status) updateData.status = status;
 
     const { data: updatedAdmin, error: updateError } = await supabase
-      .from('purchase_admin')
+        .from('purchaseManager')
       .update(updateData)
       .eq('admin_id', adminId)
       .select('admin_id, email, name, phone, company_id, role, status')
@@ -322,7 +329,7 @@ exports.changeAdminPassword = async (req, res) => {
 
     // Get admin
     const { data: admin, error: fetchError } = await supabase
-      .from('purchase_admin')
+        .from('purchaseManager')
       .select('firebase_uid')
       .eq('admin_id', adminId)
       .single();
@@ -345,7 +352,7 @@ exports.changeAdminPassword = async (req, res) => {
 
     // Update updated_at timestamp in database
     await supabase
-      .from('purchase_admin')
+        .from('purchaseManager')
       .update({ upated_at: new Date().toISOString() })
       .eq('admin_id', adminId);
 
@@ -367,7 +374,7 @@ exports.deleteAdmin = async (req, res) => {
 
     // Get admin Firebase UID
     const { data: admin, error: fetchError } = await supabase
-      .from('purchase_admin')
+        .from('purchaseManager')
       .select('firebase_uid')
       .eq('admin_id', adminId)
       .single();
@@ -378,7 +385,7 @@ exports.deleteAdmin = async (req, res) => {
 
     // Delete from database first
     const { error: deleteError } = await supabase
-      .from('purchase_admin')
+        .from('purchaseManager')
       .delete()
       .eq('admin_id', adminId);
 

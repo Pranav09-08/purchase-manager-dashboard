@@ -185,7 +185,7 @@ exports.loginVendor = async (req, res) => {
 
     // Step 2: Check if user is an ADMIN
     const { data: admin, error: adminError } = await supabase
-      .from('purchase_admin')
+      .from('purchaseManager')
       .select('*')
       .eq('email', userEmail)
       .maybeSingle();
@@ -211,16 +211,17 @@ exports.loginVendor = async (req, res) => {
       // Sync Firebase UID if not already stored
       if (!admin.firebase_uid || admin.firebase_uid !== firebaseUser.uid) {
         await supabase
-          .from('purchase_admin')
+          .from('purchaseManager')
           .update({ firebase_uid: firebaseUser.uid })
-          .eq('admin_id', admin.admin_id);
+          .eq('purchaseManagerId', admin.purchaseManagerId);
       }
 
       // Set custom claims for admin
       await firebaseAuthUtils.setCustomClaims(firebaseUser.uid, {
         admin: true,
-        role: admin.role,
-        admin_id: admin.admin_id,
+        purchaseManagerId: admin.purchaseManagerId,
+        email: admin.email,
+        status: admin.status,
       });
 
       // Get fresh ID token that includes the custom claims
@@ -237,15 +238,16 @@ exports.loginVendor = async (req, res) => {
       // Generate Firebase Custom Token
       const customToken = await firebaseAuthUtils.createCustomToken(firebaseUser.uid, {
         admin: true,
-        role: admin.role,
-        admin_id: admin.admin_id,
+        purchaseManagerId: admin.purchaseManagerId,
+        email: admin.email,
+        status: admin.status,
       });
 
       // Update last login
       await supabase
-        .from('purchase_admin')
+        .from('purchaseManager')
         .update({ last_login: new Date().toISOString() })
-        .eq('admin_id', admin.admin_id);
+        .eq('purchaseManagerId', admin.purchaseManagerId);
 
       return res.json({
         message: 'Login successful',
@@ -253,13 +255,15 @@ exports.loginVendor = async (req, res) => {
         customToken,
         idToken: freshIdToken,
         admin: {
-          admin_id: admin.admin_id,
+          purchaseManagerId: admin.purchaseManagerId,
           email: admin.email,
           name: admin.name,
           phone: admin.phone,
-          company_id: admin.company_id,
-          role: admin.role,
-          permissions: admin.permissions || [],
+          companyId: admin.companyId,
+          status: admin.status,
+          created_at: admin.created_at,
+          updated_at: admin.updated_at,
+          profile_image: admin.profile_image,
           firebase_uid: firebaseUser.uid,
         },
       });
@@ -512,9 +516,9 @@ exports.authenticateToken = async (req, res, next) => {
 
     // Check if this is an admin or vendor based on custom claims
     if (decodedToken.admin) {
-      // Admin user - fetch admin details from database
+      // Admin user - fetch admin details from purchaseManager
       const { data: admin } = await supabase
-        .from('purchase_admin')
+        .from('purchaseManager')
         .select('*')
         .eq('firebase_uid', decodedToken.uid)
         .single();
@@ -523,9 +527,8 @@ exports.authenticateToken = async (req, res, next) => {
         uid: decodedToken.uid,
         email: decodedToken.email,
         type: 'admin',
-        admin_id: admin?.admin_id,
+        purchaseManagerId: admin?.purchaseManagerId,
         name: admin?.name,
-        role: admin?.role,
         ...decodedToken,
       };
     } else {

@@ -1,7 +1,7 @@
 // Vendor product management (legacy page)
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiUrl } from '../utils/api';
+import vendorProductsApi from '../api/vendor/products.api';
 
 function Products() {
   const navigate = useNavigate();
@@ -53,14 +53,8 @@ function Products() {
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(apiUrl('/api/products'), token ? {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      } : undefined);
-      if (!response.ok) throw new Error('Failed to fetch products');
-      const data = await response.json();
-      setProducts(data || []);
+      const { data } = await vendorProductsApi.list(token);
+      setProducts(data.products || data || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -82,17 +76,7 @@ function Products() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(apiUrl('/api/products'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) throw new Error('Failed to add product');
-      
+      await vendorProductsApi.create(token, formData);
       setSuccess('Product added successfully!');
       setShowAddModal(false);
       setFormData({

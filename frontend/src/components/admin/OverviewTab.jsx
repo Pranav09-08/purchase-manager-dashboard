@@ -74,8 +74,8 @@ function OverviewTab({ overviewStats, onGoToRegistrations, onGoToVendorProducts 
           <p className="text-sm text-slate-500">No recent registrations</p>
         ) : (
           <div className="space-y-3">
-            {overviewStats.recentRegistrations.map((reg) => (
-              <div key={reg.supplier_id} className="rounded-xl border border-slate-200 px-4 py-3">
+            {overviewStats.recentRegistrations.map((reg, index) => (
+              <div key={reg.supplier_id || reg.vendor_id || reg.contact_email || index} className="rounded-xl border border-slate-200 px-4 py-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">{reg.company_name}</p>

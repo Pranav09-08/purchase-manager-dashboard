@@ -1,7 +1,69 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
-import { apiUrl } from '../utils/api';
+import {
+  listRegistrations,
+  approveRegistration,
+  rejectRegistration,
+  updateCertificateStatus
+} from '../api/admin/registrations.api';
+import adminProductsApi from '../api/admin/products.api';
+import { apiUrl, getAuthHeader as getAuthHeaders } from '../utils/api';
+import {
+  listRequiredComponents,
+  createRequiredComponent,
+  updateRequiredComponent,
+  deleteRequiredComponent
+} from '../api/admin/requiredComponents.api';
+import {
+  listEnquiries,
+  createEnquiry,
+  updateEnquiry,
+  deleteEnquiry,
+  rejectEnquiry
+} from '../api/admin/enquiries.api';
+import {
+  listQuotations,
+  createQuotation,
+  updateQuotation,
+  acceptQuotation,
+  negotiateQuotation
+} from '../api/admin/quotations.api';
+import {
+  listCounterQuotations,
+  acceptCounterQuotation,
+  rejectCounterQuotation
+} from '../api/admin/counterQuotations.api';
+import {
+  listLois,
+  createLoi,
+  updateLoi,
+  resubmitLoi
+} from '../api/admin/lois.api';
+import {
+  listOrders,
+  createOrder
+} from '../api/admin/orders.api';
+import {
+  listPayments,
+  createPayment,
+  completePayment,
+  failPayment
+} from '../api/admin/payments.api';
+import {
+  listInvoices,
+  invoiceAction
+} from '../api/admin/invoices.api';
+import { listRequests } from '../api/admin/requests.api';
+import { getAnalytics } from '../api/admin/analytics.api';
+import { activateComponent } from '../api/admin/components.api';
+import {
+  listClients,
+  createClient,
+  getClientById,
+  updateClient,
+  updateClientStatus
+} from '../api/admin/clients.api';
 import { useAuth } from '../contexts/AuthContext';
 import OverviewTab from '../components/admin/OverviewTab';
 import ProductsTab from '../components/admin/ProductsTab';
@@ -206,29 +268,10 @@ function AdminPanel() {
   }, [currentPage, purchasePayments]);
 
   const fetchRegistrations = async () => {
-    // Load supplier registration requests
     setLoading(true);
     try {
-      const url = filter
-        ? apiUrl(`/api/auth/registrations?status=${filter}`)
-        : apiUrl('/api/auth/registrations');
-
-      const authHeaders = await getAuthHeaders();
-      const response = await fetch(url, {
-        headers: authHeaders,
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to fetch registrations');
-        return;
-      }
-
-      // Debug: Log first record to console to check data
-      if (data && data.length > 0) {
-        console.log('Sample registration data:', data[0]);
-      }
-
+      const token = idToken || (await getIdToken());
+      const data = await listRegistrations(token, filter);
       setRegistrations(data || []);
     } catch (err) {
       setError(err.message || 'An error occurred');
@@ -238,13 +281,10 @@ function AdminPanel() {
   };
 
   const fetchVendorProducts = async () => {
-    // Load vendor component submissions
     try {
-      const response = await fetch(apiUrl('/api/admin/vendor-products'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch vendor products');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      // Assuming vendor products are fetched via adminProductsApi.list
+      const data = await adminProductsApi.list(token);
       setVendorProducts(data.products || []);
     } catch (err) {
       console.error('Error fetching vendor products:', err);
@@ -252,27 +292,19 @@ function AdminPanel() {
   };
 
   const fetchProducts = async () => {
-    // Load purchase manager products (read-only)
     try {
-      const response = await fetch(apiUrl('/api/products'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch products');
-      const data = await response.json();
-      setProducts(data || []);
+      const token = idToken || (await getIdToken());
+      const data = await adminProductsApi.list(token);
+      setProducts(data.products || []);
     } catch (err) {
       console.error('Error fetching products:', err);
     }
   };
 
   const fetchRequiredRequests = async () => {
-    // Load globally required components
     try {
-      const response = await fetch(apiUrl('/api/required-components'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch required components');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listRequiredComponents(token);
       setRequiredRequests(data.components || []);
     } catch (err) {
       console.error('Error fetching required components:', err);
@@ -296,15 +328,8 @@ function AdminPanel() {
 
   const fetchPurchaseEnquiries = async () => {
     try {
-      const authHeaders = await getAuthHeaders();
-      const response = await fetch(apiUrl('/api/purchase/enquiries'), {
-        headers: authHeaders,
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to fetch enquiries: ${errorData.error}`);
-      }
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listEnquiries(token);
       setPurchaseEnquiries(data.enquiries || []);
     } catch (err) {
       console.error('Error fetching enquiries:', err);
@@ -313,11 +338,8 @@ function AdminPanel() {
 
   const fetchPurchaseQuotations = async () => {
     try {
-      const response = await fetch(apiUrl('/api/purchase/quotations'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch quotations');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listQuotations(token);
       setPurchaseQuotations(data.quotations || []);
     } catch (err) {
       console.error('Error fetching quotations:', err);
@@ -326,11 +348,8 @@ function AdminPanel() {
 
   const fetchCounterQuotations = async () => {
     try {
-      const response = await fetch(apiUrl('/api/vendor/counter-quotations'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch counter quotations');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listCounterQuotations(token);
       setCounterQuotations(data.counters || []);
     } catch (err) {
       console.error('Error fetching counter quotations:', err);
@@ -339,11 +358,8 @@ function AdminPanel() {
 
   const fetchPurchaseLois = async () => {
     try {
-      const response = await fetch(apiUrl('/api/purchase/lois'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch LOIs');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listLois(token);
       setPurchaseLois(data.lois || []);
     } catch (err) {
       console.error('Error fetching LOIs:', err);
@@ -352,11 +368,8 @@ function AdminPanel() {
 
   const fetchPurchaseOrders = async () => {
     try {
-      const response = await fetch(apiUrl('/api/purchase/orders'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch orders');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listOrders(token);
       setPurchaseOrders(data.orders || []);
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -365,11 +378,8 @@ function AdminPanel() {
 
   const fetchPurchasePayments = async () => {
     try {
-      const response = await fetch(apiUrl('/api/purchase/payments'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch payments');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listPayments(token);
       setPurchasePayments(data.payments || []);
     } catch (err) {
       console.error('Error fetching payments:', err);
@@ -378,11 +388,8 @@ function AdminPanel() {
 
   const fetchVendorInvoices = async () => {
     try {
-      const response = await fetch(apiUrl('/api/vendor/invoices'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch invoices');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listInvoices(token);
       setVendorInvoices(data.invoices || []);
     } catch (err) {
       console.error('Error fetching invoices:', err);
@@ -391,11 +398,8 @@ function AdminPanel() {
 
   const fetchPurchaseRequests = async () => {
     try {
-      const response = await fetch(apiUrl('/api/requests'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch planning requests');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listRequests(token);
       setPurchaseRequests(data || []);
     } catch (err) {
       console.error('Error fetching planning requests:', err);
@@ -404,11 +408,8 @@ function AdminPanel() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch(apiUrl('/api/analytics/purchase-manager'), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch analytics');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await getAnalytics(token);
       setAnalyticsData(data);
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -463,16 +464,17 @@ function AdminPanel() {
         headers: await getAuthHeaders(),
       });
       const allRegistrations = await response.json();
-
+      if (!Array.isArray(allRegistrations)) {
+        console.error('Error fetching overview stats:', allRegistrations?.error || allRegistrations);
+        return;
+      }
       const approved = allRegistrations.filter(r => r.status === 'approved').length;
       const pending = allRegistrations.filter(r => r.status === 'pending').length;
       const rejected = allRegistrations.filter(r => r.status === 'rejected').length;
-
       // Get recent registrations (last 5)
       const recent = allRegistrations
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5);
-
       setOverviewStats(prev => ({
         ...prev,
         totalSuppliers: allRegistrations.length,

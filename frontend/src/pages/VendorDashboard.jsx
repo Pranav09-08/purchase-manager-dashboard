@@ -34,7 +34,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
-import { apiUrl } from '../utils/api';
+import { listVendorComponents } from '../api/vendor/components.api';
+import { listRequiredComponents } from '../api/vendor/requiredComponents.api';
+import { listVendorEnquiries } from '../api/vendor/enquiries.api';
+import { listVendorQuotations } from '../api/vendor/quotations.api';
+import { listVendorCounterQuotations } from '../api/vendor/counterQuotations.api';
+import { listVendorLois } from '../api/vendor/lois.api';
+import { listVendorOrders } from '../api/vendor/orders.api';
+import { listVendorPayments } from '../api/vendor/payments.api';
+import { listVendorInvoices } from '../api/vendor/invoices.api';
+// Add similar imports for orders, payments, invoices if needed
 import OverviewTab from '../components/vendor/OverviewTab';
 import VendorAnalyticsTab from '../components/vendor/VendorAnalyticsTab';
 import ComponentsTab from '../components/vendor/ComponentsTab';
@@ -172,32 +181,16 @@ function VendorDashboard() {
   /** Fetch vendor's product catalog with approval status */
   const fetchComponents = async () => {
     if (!currentUser) return;
-
-    const response = await fetch(apiUrl('/api/vendor/components'), {
-      headers: await getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch components');
-    }
-
-    const data = await response.json();
+    const token = idToken || (await getIdToken());
+    const data = await listVendorComponents(token);
     setComponents(data.products || []);
   };
 
   /** Fetch PM's required components list for reference */
   const fetchRequiredComponents = async () => {
     if (!currentUser) return;
-
-    const response = await fetch(apiUrl('/api/vendor/components-required'), {
-      headers: await getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch required components');
-    }
-
-    const data = await response.json();
+    const token = idToken || (await getIdToken());
+    const data = await listRequiredComponents(token);
     setRequiredComponents(data.requiredComponents || []);
   };
 
@@ -206,11 +199,8 @@ function VendorDashboard() {
   /** Fetch enquiries from PM for this vendor */
   const fetchPurchaseEnquiries = async (vendorId) => {
     try {
-      const response = await fetch(apiUrl(`/api/purchase/enquiries?vendorId=${vendorId}`), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch enquiries');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listVendorEnquiries(token, vendorId);
       setPurchaseEnquiries(data.enquiries || []);
     } catch (err) {
       console.error('Error fetching enquiries:', err);
@@ -220,11 +210,8 @@ function VendorDashboard() {
   /** Fetch vendor's submitted quotations to PM */
   const fetchPurchaseQuotations = async (vendorId) => {
     try {
-      const response = await fetch(apiUrl(`/api/purchase/quotations?vendorId=${vendorId}`), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch quotations');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listVendorQuotations(token, vendorId);
       setPurchaseQuotations(data.quotations || []);
     } catch (err) {
       console.error('Error fetching quotations:', err);
@@ -234,11 +221,8 @@ function VendorDashboard() {
   /** Fetch PM's counter quotations/offers to vendor */
   const fetchCounterQuotations = async (vendorId) => {
     try {
-      const response = await fetch(apiUrl(`/api/vendor/counter-quotations?vendorId=${vendorId}`), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch counter quotations');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listVendorCounterQuotations(token, vendorId);
       setCounterQuotations(data.counters || []);
     } catch (err) {
       console.error('Error fetching counter quotations:', err);
@@ -247,11 +231,8 @@ function VendorDashboard() {
 
   const fetchPurchaseLois = async (vendorId) => {
     try {
-      const response = await fetch(apiUrl(`/api/purchase/lois?vendorId=${vendorId}`), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch LOIs');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listVendorLois(token, vendorId);
       setPurchaseLois(data.lois || []);
     } catch (err) {
       console.error('Error fetching LOIs:', err);
@@ -260,11 +241,8 @@ function VendorDashboard() {
 
   const fetchPurchaseOrders = async (vendorId) => {
     try {
-      const response = await fetch(apiUrl(`/api/purchase/orders?vendorId=${vendorId}`), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch orders');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listVendorOrders(token, vendorId);
       setPurchaseOrders(data.orders || []);
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -273,11 +251,8 @@ function VendorDashboard() {
 
   const fetchPurchasePayments = async (vendorId) => {
     try {
-      const response = await fetch(apiUrl(`/api/purchase/payments?vendorId=${vendorId}`), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch payments');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listVendorPayments(token, vendorId);
       setPurchasePayments(data.payments || []);
     } catch (err) {
       console.error('Error fetching payments:', err);
@@ -286,11 +261,8 @@ function VendorDashboard() {
 
   const fetchVendorInvoices = async (vendorId) => {
     try {
-      const response = await fetch(apiUrl(`/api/vendor/invoices?vendorId=${vendorId}`), {
-        headers: await getAuthHeaders(),
-      });
-      if (!response.ok) throw new Error('Failed to fetch invoices');
-      const data = await response.json();
+      const token = idToken || (await getIdToken());
+      const data = await listVendorInvoices(token, vendorId);
       setVendorInvoices(data.invoices || []);
     } catch (err) {
       console.error('Error fetching invoices:', err);
