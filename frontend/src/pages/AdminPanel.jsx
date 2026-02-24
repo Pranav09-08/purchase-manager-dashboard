@@ -8,7 +8,6 @@ import {
   updateCertificateStatus
 } from '../api/admin/registrations.api';
 import adminProductsApi from '../api/admin/products.api';
-import { apiUrl, getAuthHeader as getAuthHeaders } from '../utils/api';
 import {
   listRequiredComponents,
   createRequiredComponent,
@@ -283,11 +282,12 @@ function AdminPanel() {
   const fetchVendorProducts = async () => {
     try {
       const token = idToken || (await getIdToken());
-      // Assuming vendor products are fetched via adminProductsApi.list
-      const data = await adminProductsApi.list(token);
-      setVendorProducts(data.products || []);
+      // Fetch vendor components using the correct API
+      const { listVendorComponents } = await import('../api/vendor/components.api');
+      const data = await listVendorComponents(token);
+      setVendorProducts(Array.isArray(data?.products) ? data.products : []);
     } catch (err) {
-      console.error('Error fetching vendor products:', err);
+      console.error('Error fetching vendor components:', err);
     }
   };
 
@@ -295,7 +295,7 @@ function AdminPanel() {
     try {
       const token = idToken || (await getIdToken());
       const data = await adminProductsApi.list(token);
-      setProducts(data.products || []);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching products:', err);
     }
@@ -313,16 +313,15 @@ function AdminPanel() {
 
   // Build auth headers using Firebase ID token
   const getAuthHeaders = async () => {
-    if (idToken) {
-      return { Authorization: `Bearer ${idToken}` };
+    let token = idToken;
+    if (!token) {
+      token = await getIdToken();
     }
-    
-    // Try to get fresh token
-    const freshToken = await getIdToken();
-    if (freshToken) {
-      return { Authorization: `Bearer ${freshToken}` };
+    if (token && typeof token === 'string' && token.length > 0) {
+      return { Authorization: `Bearer ${token}` };
     }
-    
+    // If token is missing or invalid, auto-redirect to login
+    navigate('/admin/login');
     return {};
   };
 
@@ -460,10 +459,8 @@ function AdminPanel() {
     // Compute stats for overview cards
     try {
       // Fetch all registrations to calculate stats
-      const response = await fetch(apiUrl('/api/auth/registrations'), {
-        headers: await getAuthHeaders(),
-      });
-      const allRegistrations = await response.json();
+      const token = localStorage.getItem('token');
+      const allRegistrations = await listRegistrations(token);
       if (!Array.isArray(allRegistrations)) {
         console.error('Error fetching overview stats:', allRegistrations?.error || allRegistrations);
         return;
@@ -949,19 +946,17 @@ function AdminPanel() {
           specifications: item.specifications || null,
         })),
       };
-      const response = await fetch(
-        apiUrl(`/api/purchase/enquiry${editingEnquiryId ? `/${editingEnquiryId}` : ''}`),
-        {
-          method: editingEnquiryId ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(await getAuthHeaders()),
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to save enquiry');
+      const token = idToken || (await getIdToken());
+      let data;
+      if (editingEnquiryId) {
+        // Update existing enquiry
+        const { updateEnquiry } = await import('../api/admin/enquiries.api');
+        data = await updateEnquiry(token, editingEnquiryId, payload);
+      } else {
+        // Create new enquiry
+        const { createEnquiry } = await import('../api/admin/enquiries.api');
+        data = await createEnquiry(token, payload);
+      }
       setSuccess(editingEnquiryId ? 'Enquiry updated successfully' : 'Enquiry created successfully');
       setTimeout(() => setSuccess(''), 3000);
       setEnquiryForm({ companyId: '', vendorId: '', title: '', description: '', requiredDeliveryDate: '', source: 'emergency', planningRequestId: '' });
@@ -1006,16 +1001,9 @@ function AdminPanel() {
           lineTotal: Number(item.lineTotal) || 0,
         })),
       };
-      const response = await fetch(apiUrl('/api/purchase/quotation'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to create quotation');
+      const token = idToken || (await getIdToken());
+      const { createQuotation } = await import('../api/admin/quotations.api');
+      await createQuotation(token, payload);
       setSuccess('Quotation created successfully');
       setTimeout(() => setSuccess(''), 3000);
       setQuotationForm({ enquiryId: '', vendorId: '', validTill: '', expectedDeliveryDate: '', advancePaymentPercent: 0, notes: '' });
@@ -1047,19 +1035,15 @@ function AdminPanel() {
         expectedDeliveryDate: loiForm.expectedDeliveryDate || null,
         termsAndConditions: loiForm.termsAndConditions || null,
       };
-      const response = await fetch(
-        apiUrl(`/api/purchase/loi${editingLoiId ? `/${editingLoiId}` : ''}`),
-        {
-          method: editingLoiId ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(await getAuthHeaders()),
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to save LOI');
+      const token = idToken || (await getIdToken());
+      let data;
+      if (editingLoiId) {
+        const { updateLoi } = await import('../api/admin/lois.api');
+        data = await updateLoi(token, editingLoiId, payload);
+      } else {
+        const { createLoi } = await import('../api/admin/lois.api');
+        data = await createLoi(token, payload);
+      }
       setSuccess(editingLoiId ? 'LOI updated successfully' : 'LOI created successfully');
       setTimeout(() => setSuccess(''), 3000);
       setLoiForm({ quotationId: '', counterQuotationId: '', totalAmount: '', advancePaymentPercent: 0, expectedDeliveryDate: '', termsAndConditions: '' });
@@ -1256,16 +1240,9 @@ function AdminPanel() {
           lineTotal: Number(item.lineTotal) || 0,
         })),
       };
-      const response = await fetch(apiUrl('/api/purchase/order'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to create order');
+      const token = idToken || (await getIdToken());
+      const { createOrder } = await import('../api/admin/orders.api');
+      await createOrder(token, payload);
       setSuccess('Order created successfully');
       setTimeout(() => setSuccess(''), 3000);
       setOrderForm({ loiId: '', expectedDeliveryDate: '', termsAndConditions: '' });
@@ -1306,16 +1283,9 @@ function AdminPanel() {
         paymentMode: paymentForm.paymentMode || null,
         dueDate: paymentForm.dueDate || null,
       };
-      const response = await fetch(apiUrl('/api/purchase/payment'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to create payment');
+      const token = idToken || (await getIdToken());
+      const { createPayment } = await import('../api/admin/payments.api');
+      await createPayment(token, payload);
       setSuccess('Payment created successfully');
       setTimeout(() => setSuccess(''), 3000);
       setPaymentForm({ orderId: '', phase: '', amount: '', paymentMode: '', dueDate: '' });
@@ -1329,16 +1299,9 @@ function AdminPanel() {
 
   const handlePaymentComplete = async (paymentId) => {
     try {
-      const response = await fetch(apiUrl(`/api/purchase/payment/${paymentId}/complete`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to complete payment');
+      const token = idToken || (await getIdToken());
+      const { completePayment } = await import('../api/admin/payments.api');
+      await completePayment(token, paymentId);
       setSuccess('Payment marked completed');
       setTimeout(() => setSuccess(''), 3000);
       fetchPurchasePayments();
@@ -1350,16 +1313,9 @@ function AdminPanel() {
 
   const handlePaymentFail = async (paymentId) => {
     try {
-      const response = await fetch(apiUrl(`/api/purchase/payment/${paymentId}/fail`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to mark payment failed');
+      const token = idToken || (await getIdToken());
+      const { failPayment } = await import('../api/admin/payments.api');
+      await failPayment(token, paymentId);
       setSuccess('Payment marked failed');
       setTimeout(() => setSuccess(''), 3000);
       fetchPurchasePayments();

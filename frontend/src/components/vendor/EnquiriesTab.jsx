@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiUrl } from '../../utils/api';
+import apiClient from '../../api/apiClient';
 
 // Vendor enquiries list
 function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, getAuthHeaders, onRejectEnquiry }) {
@@ -76,19 +76,10 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
     }
     setRejectLoading(true);
     try {
-      const response = await fetch(
-        apiUrl(`/api/purchase/enquiry/${selectedEnquiry.enquiry_id}/reject`),
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(getAuthHeaders ? getAuthHeaders() : {}),
-          },
-          body: JSON.stringify({ rejectionReason: rejectionReason.trim() }),
-        }
+      const { data } = await apiClient.put(
+        `/api/purchase/enquiry/${selectedEnquiry.enquiry_id}/reject`,
+        { rejectionReason: rejectionReason.trim() }
       );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to reject enquiry');
       
       // Call parent callback if provided
       if (onRejectEnquiry) {

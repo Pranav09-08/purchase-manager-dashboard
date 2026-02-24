@@ -14,6 +14,7 @@ router.post('/auth/admin-login', adminAuthController.loginAdmin);
 
 // Vendor routes (authenticated)
 router.put('/vendor/profile', authController.authenticateToken, authController.updateVendorProfile);
+router.get('/vendor/profile', authController.authenticateToken, authController.getVendorProfile);
 
 // Admin management routes (authenticated - requires super_admin)
 router.get('/auth/admins', authController.authenticateToken, adminAuthController.getAllAdmins);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiUrl } from '../../utils/api';
+import { approveVendorComponent, rejectVendorComponent } from '../../api/vendor/components.api';
 
 // Vendor submitted components list with approval workflow
 function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
@@ -25,20 +25,10 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
 
   const handleApprove = async (componentId) => {
     if (!confirm('Approve this component for purchase?')) return;
-
     setLoading(true);
     try {
-      const authHeaders = await getAuthHeaders();
-      const response = await fetch(`${apiUrl}/api/vendor/components/${componentId}/approve`, {
-        method: 'PUT',
-        headers: {
-          ...authHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to approve component');
-
+      const token = localStorage.getItem('token');
+      await approveVendorComponent(token, componentId);
       alert('Component approved successfully!');
       if (onRefresh) onRefresh();
     } catch (error) {
@@ -54,21 +44,10 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
       alert('Please provide a rejection reason');
       return;
     }
-
     setLoading(true);
     try {
-      const authHeaders = await getAuthHeaders();
-      const response = await fetch(`${apiUrl}/api/vendor/components/${showRejectModal}/reject`, {
-        method: 'PUT',
-        headers: {
-          ...authHeaders,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ rejectionReason: rejectionReason.trim() })
-      });
-
-      if (!response.ok) throw new Error('Failed to reject component');
-
+      const token = localStorage.getItem('token');
+      await rejectVendorComponent(token, showRejectModal, rejectionReason.trim());
       alert('Component rejected. Vendor will be notified.');
       setShowRejectModal(null);
       setRejectionReason('');

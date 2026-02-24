@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { apiUrl } from '../utils/api';
+import apiClient from '../api/apiClient';
 
 function VendorLogin() {
   const navigate = useNavigate();
@@ -39,24 +39,10 @@ function VendorLogin() {
 
     try {
       // Step 1: Verify credentials with backend (gets custom token)
-      const response = await fetch(apiUrl('/api/auth/login'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contact_email: formData.contact_email,
-          password: formData.password,
-        }),
+      const { data } = await apiClient.post('/api/auth/login', {
+        contact_email: formData.contact_email,
+        password: formData.password,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Login failed');
-        return;
-      }
-
       console.log('✅ Login response received:', { message: data.message, hasCustomToken: !!data.customToken });
 
       // Step 2: Sign in to Firebase with custom token

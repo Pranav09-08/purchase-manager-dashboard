@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiUrl } from '../../utils/api';
+import { listAvailableVendorComponents, addAvailableVendorComponent } from '../../api/vendor/components.api';
 
 function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
   const [components, setComponents] = useState([]);
@@ -25,21 +25,11 @@ function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(apiUrl('/api/vendor/available-components'), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setComponents(data.components || []);
-        setError('');
-      } else {
-        setError(data.error || 'Failed to fetch available components');
-        setComponents([]);
-      }
+      const data = await listAvailableVendorComponents(token);
+      setComponents(data.components || []);
+      setError('');
     } catch (err) {
-      setError(err.message || 'Failed to fetch available components');
+      setError(err.response?.data?.error || err.message || 'Failed to fetch available components');
       setComponents([]);
     } finally {
       setLoading(false);
@@ -84,34 +74,19 @@ function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
       };
 
       const token = localStorage.getItem('token');
-      const response = await fetch(apiUrl('/api/vendor/add-available-component'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess(`${selectedComponent.component_name} added successfully!`);
-        setSelectedComponent(null);
-        
-        // Refresh available components
-        setTimeout(() => {
-          fetchAvailableComponents();
-          if (onComponentAdded) {
-            onComponentAdded(data.component);
-          }
-          setSuccess('');
-        }, 1500);
-      } else {
-        setError(data.error || 'Failed to add component');
-      }
+      const { data } = await addAvailableVendorComponent(token, payload);
+      setSuccess(`${selectedComponent.component_name} added successfully!`);
+      setSelectedComponent(null);
+      // Refresh available components
+      setTimeout(() => {
+        fetchAvailableComponents();
+        if (onComponentAdded) {
+          onComponentAdded(data.component);
+        }
+        setSuccess('');
+      }, 1500);
     } catch (err) {
-      setError(err.message || 'Failed to add component');
+      setError(err.response?.data?.error || err.message || 'Failed to add component');
     } finally {
       setLoading(false);
     }

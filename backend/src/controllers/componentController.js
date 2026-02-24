@@ -1,3 +1,21 @@
+// Admin: Get all vendor components
+exports.getAllVendorComponents = async (req, res) => {
+  try {
+    // Only allow admin users
+    if (!req.user || req.user.type !== 'admin') {
+      return res.status(403).json({ error: 'Admin authentication required' });
+    }
+    const { data: components, error } = await supabase
+      .from('vendor_components')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json({ components: components || [] });
+  } catch (error) {
+    console.error('Error fetching all vendor components:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch vendor components' });
+  }
+};
 const supabase = require('../config/supabase');
 const { v4: uuidv4 } = require('uuid');
 // Vendor components and required components feed
@@ -162,38 +180,42 @@ const getAllCompaniesForVendor = async (vendorId) => {
 // Get vendor components (authenticated)
 exports.getVendorComponents = async (req, res) => {
   try {
-    const vendorId = req.user.vendor_id;
+    // If admin, return all vendor components
+    if (req.user && req.user.type === 'admin') {
+      const { data: components, error } = await supabase
+        .from('vendor_components')
+        .select('*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_person), Company:companyid(companyId, company_name)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return res.json({ products: components || [] });
+    }
 
+    // If vendor, return only their components
+    const vendorId = req.user.vendor_id;
     if (!vendorId) {
       return res.status(400).json({ error: 'Vendor ID is required' });
     }
-
     // Get company linked to this vendor
     const company = await getCompanyForVendor(vendorId);
-
     if (!company) {
       console.error('Company not found for vendor:', vendorId);
       return res.status(500).json({ error: 'Failed to get or create company for vendor', vendorId });
     }
-
     // Get all vendor components for this vendor/company
     const companyId = company.companyId;
     const filter = companyId
       ? `vendorid.eq.${vendorId},companyid.eq.${companyId}`
       : `vendorid.eq.${vendorId}`;
-
     const { data: components, error: componentsError } = await supabase
       .from('vendor_components')
-      .select('*')
+      .select('*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_person), Company:companyid(companyId, company_name)')
       .or(filter)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
-
     if (componentsError) {
       console.error('Error fetching components:', componentsError);
       throw componentsError;
     }
-
     res.json({ products: components || [] });
   } catch (error) {
     console.error('Error fetching components:', error);
@@ -660,53 +682,71 @@ exports.getAvailableComponentsForVendor = async (req, res) => {
 // Add component from company's component list (vendor supplies existing component)
 exports.addAvailableComponent = async (req, res) => {
   try {
-    const vendorId = req.user.vendor_id;
-    const { componentCode, pricePerUnit, currentStock, leadTimeDays, minOrderQuantity, discount } = req.body;
+    const vendorId = req.user?.vendor_id;
+    const {
+      componentCode,
+      pricePerUnit,
+      currentStock,
+      leadTimeDays,
+      minOrderQuantity,
+      discount,
+    } = req.body;
 
+    // 🔹 Basic validation
     if (!vendorId) {
-      return res.status(400).json({ error: 'Vendor ID is required' });
+      return res.status(401).json({ error: "Vendor authentication required" });
     }
 
     if (!componentCode || pricePerUnit === undefined) {
-      return res.status(400).json({ error: 'Component code and price are required' });
+      return res
+        .status(400)
+        .json({ error: "Component code and price are required" });
     }
 
+    // 🔹 Get companies mapped to vendor
     const companies = await getAllCompaniesForVendor(vendorId);
-    const companyIds = companies.map((comp) => comp.companyId).filter(Boolean);
+    const companyIds = companies.map((c) => c.companyId).filter(Boolean);
+
     if (companyIds.length === 0) {
-      return res.status(400).json({ error: 'No companies associated with this vendor' });
+      return res
+        .status(400)
+        .json({ error: "No companies associated with this vendor" });
     }
 
-    // Get the component details from any linked company
+    // 🔹 Fetch component master
     const { data: component, error: componentError } = await supabase
-      .from('Components')
-      .select('*')
-      .eq('component_code', componentCode)
-      .in('companyId', companyIds)
-      .single();
+      .from("Components")
+      .select("*")
+      .eq("component_code", componentCode)
+      .in("companyId", companyIds)
+      .maybeSingle();
 
-    if (componentError || !component) {
-      return res.status(404).json({ error: 'Component not found' });
+    if (componentError) throw componentError;
+    if (!component) {
+      return res.status(404).json({ error: "Component not found" });
     }
 
-    // Check if vendor already supplies this component
+    // 🔹 Check duplicate
     const { data: existing } = await supabase
-      .from('vendor_components')
-      .select('componentid')
-      .eq('vendorid', vendorId)
-      .eq('component_code', componentCode)
-      .single();
+      .from("vendor_components")
+      .select("componentid")
+      .eq("vendorid", vendorId)
+      .eq("component_code", componentCode)
+      .maybeSingle();
 
     if (existing) {
-      return res.status(400).json({ error: 'You already supply this component' });
+      return res
+        .status(409)
+        .json({ error: "You already supply this component" });
     }
 
-    // Generate unique ID
-    const vendorComponentId = `vc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const vendorComponentId = `vc_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
 
-    // Insert vendor component with component_code link
+    // 🔹 Insert
     const { data: newComponent, error: insertError } = await supabase
-      .from('vendor_components')
+      .from("vendor_components")
       .insert([
         {
           componentid: vendorComponentId,
@@ -722,13 +762,13 @@ exports.addAvailableComponent = async (req, res) => {
           img: component.img,
           size: component.size,
           specifications: component.specifications,
-          price_per_unit: parseFloat(pricePerUnit),
-          stock_available: parseInt(currentStock) || 0,
-          minimum_order_quantity: parseInt(minOrderQuantity) || 1,
-          lead_time_days: parseInt(leadTimeDays) || 0,
-          cgst: parseFloat(component.cgst) || 0,
-          sgst: parseFloat(component.sgst) || 0,
-          discount_percent: parseFloat(discount) || 0,
+          price_per_unit: Number(pricePerUnit),
+          stock_available: Number(currentStock) || 0,
+          minimum_order_quantity: Number(minOrderQuantity) || 1,
+          lead_time_days: Number(leadTimeDays) || 0,
+          cgst: Number(component.cgst) || 0,
+          sgst: Number(component.sgst) || 0,
+          discount_percent: Number(discount) || 0,
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -739,79 +779,13 @@ exports.addAvailableComponent = async (req, res) => {
 
     if (insertError) throw insertError;
 
-    res.status(201).json({
-      message: 'Component added successfully',
+    return res.status(201).json({
+      message: "Component added successfully",
       component: newComponent,
     });
   } catch (error) {
-    console.error('Error adding available component:', error);
-    res.status(500).json({ error: error.message || 'Failed to add component' });
-  }
-};
-
-// Get vendors supplying a specific component (for purchase manager)
-exports.getComponentVendors = async (req, res) => {
-  try {
-    const { componentCode } = req.params;
-    const componentName = req.query.componentName;
-
-    if (!componentCode && !componentName) {
-      return res.status(400).json({ error: 'Component code or name is required' });
-    }
-
-    if (componentName) {
-      const { data: vendorsByName, error: nameError } = await supabase
-        .from('vendor_components')
-        .select('*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_email, contact_phone)')
-        .eq('component_name', componentName)
-        .eq('is_active', true)
-        .order('price_per_unit', { ascending: true });
-
-      if (nameError) throw nameError;
-
-      return res.json({ vendors: vendorsByName || [] });
-    }
-
-    // Get all vendors supplying this component
-    const { data: vendors, error } = await supabase
-      .from('vendor_components')
-      .select('*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_email, contact_phone)')
-      .eq('component_code', componentCode)
-      .eq('is_active', true)
-      .order('price_per_unit', { ascending: true });
-
-    if (error) throw error;
-
-    if (vendors && vendors.length > 0) {
-      return res.json({ vendors });
-    }
-
-    // Fallback to match by component name when code is missing on vendor entries
-    const { data: component, error: componentError } = await supabase
-      .from('Components')
-      .select('component_name')
-      .or(`component_code.eq.${componentCode},componentId.eq.${componentCode}`)
-      .maybeSingle();
-
-    if (componentError) throw componentError;
-
-    if (!component?.component_name) {
-      return res.json({ vendors: [] });
-    }
-
-    const { data: nameMatchedVendors, error: nameError } = await supabase
-      .from('vendor_components')
-      .select('*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_email, contact_phone)')
-      .eq('component_name', component.component_name)
-      .eq('is_active', true)
-      .order('price_per_unit', { ascending: true });
-
-    if (nameError) throw nameError;
-
-    res.json({ vendors: nameMatchedVendors || [] });
-  } catch (error) {
-    console.error('Error fetching component vendors:', error);
-    res.status(500).json({ error: error.message || 'Failed to fetch vendors' });
+    console.error("Error adding available component:", error);
+    return res.status(500).json({ error: "Failed to add component" });
   }
 };
 
@@ -908,60 +882,137 @@ exports.rejectVendorComponent = async (req, res) => {
 exports.updateVendorComponent = async (req, res) => {
   try {
     const { componentId } = req.params;
-    const vendorId = req.user.vendor_id;
-    const updateData = req.body;
+    const vendorId = req.user?.vendor_id;
+    const payload = req.body || {};
 
     if (!vendorId) {
-      return res.status(401).json({ error: 'Vendor authentication required' });
+      return res.status(401).json({ error: "Vendor authentication required" });
     }
 
     if (!componentId) {
-      return res.status(400).json({ error: 'Component ID is required' });
+      return res.status(400).json({ error: "Component ID is required" });
     }
 
-    // Get current component to check status
+    // 1️⃣ Fetch component
     const { data: currentComponent, error: fetchError } = await supabase
-      .from('vendor_components')
-      .select('status, vendorid')
-      .eq('componentid', componentId)
-      .single();
+      .from("vendor_components")
+      .select("status, vendorid")
+      .eq("componentid", componentId)
+      .maybeSingle();
 
     if (fetchError) throw fetchError;
 
-    // Verify vendor owns this component
-    if (currentComponent.vendorid !== vendorId) {
-      return res.status(403).json({ error: 'Unauthorized to update this component' });
+    if (!currentComponent) {
+      return res.status(404).json({ error: "Component not found" });
     }
 
-    // If component was rejected, reset to pending when vendor updates
+    // 2️⃣ Ownership check
+    if (currentComponent.vendorid !== vendorId) {
+      return res.status(403).json({ error: "Unauthorized to update this component" });
+    }
+
+    // 3️⃣ Build safe update object
     const updates = {
-      ...updateData,
+      ...payload,
       updated_at: new Date().toISOString(),
     };
 
-    if (currentComponent.status === 'rejected') {
-      updates.status = 'pending';
+    // Prevent client from manually changing status
+    delete updates.status;
+    delete updates.vendorid;
+    delete updates.componentid;
+
+    // 4️⃣ Auto resubmission logic
+    let resubmitted = false;
+    if (currentComponent.status === "rejected") {
+      updates.status = "pending";
       updates.rejection_reason = null;
-      // submission_count will be auto-incremented by trigger
+      resubmitted = true;
     }
 
-    // Update component
-    const { data: updatedComponent, error } = await supabase
-      .from('vendor_components')
+    // 5️⃣ Update with vendor scope (important)
+    const { data: updatedComponent, error: updateError } = await supabase
+      .from("vendor_components")
       .update(updates)
-      .eq('componentid', componentId)
+      .eq("componentid", componentId)
+      .eq("vendorid", vendorId)
       .select()
       .single();
 
+    if (updateError) throw updateError;
+
+    return res.status(200).json({
+      message: "Component updated successfully",
+      component: updatedComponent,
+      resubmitted,
+    });
+
+  } catch (err) {
+    console.error("Error updating vendor component:", err);
+    return res.status(500).json({
+      error: "Failed to update component",
+    });
+  }
+};
+
+
+exports.getComponentVendors = async (req, res) => {
+  try {
+    const { componentCode } = req.params;
+    const { componentName } = req.query;
+
+    if (!componentCode && !componentName) {
+      return res
+        .status(400)
+        .json({ error: "Component code or name is required" });
+    }
+
+    let query = supabase
+      .from("vendor_components")
+      .select(
+        "*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_email, contact_phone)"
+      )
+      .eq("is_active", true)
+      .order("price_per_unit", { ascending: true });
+
+    if (componentName) {
+      query = query.eq("component_name", componentName);
+    } else {
+      query = query.eq("component_code", componentCode);
+    }
+
+    const { data: vendors, error } = await query;
     if (error) throw error;
 
-    res.json({
-      message: 'Component updated successfully',
-      component: updatedComponent,
-      resubmitted: currentComponent.status === 'rejected',
-    });
+    if (vendors?.length) {
+      return res.json({ vendors });
+    }
+
+    // 🔹 fallback by component master name
+    if (!componentName) {
+      const { data: component } = await supabase
+        .from("Components")
+        .select("component_name")
+        .eq("component_code", componentCode)
+        .maybeSingle();
+
+      if (component?.component_name) {
+        const { data: fallback } = await supabase
+          .from("vendor_components")
+          .select(
+            "*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_email, contact_phone)"
+          )
+          .eq("component_name", component.component_name)
+          .eq("is_active", true)
+          .order("price_per_unit", { ascending: true });
+
+        return res.json({ vendors: fallback || [] });
+      }
+    }
+
+    return res.json({ vendors: [] });
   } catch (error) {
-    console.error('Error updating vendor component:', error);
-    res.status(500).json({ error: error.message || 'Failed to update component' });
+    console.error("Error fetching component vendors:", error);
+    return res.status(500).json({ error: "Failed to fetch vendors" });
   }
 };
