@@ -18,11 +18,14 @@ class VendorListScreen extends StatefulWidget {
 }
 
 class _VendorListScreenState extends State<VendorListScreen> {
+    String statusFilter = '';
   bool loading = true;
   List<Map<String, dynamic>> vendors = [];
   List<Map<String, dynamic>> filtered = [];
   String search = '';
   String error = '';
+
+  get padding => null;
 
   @override
   void initState() {
@@ -63,16 +66,18 @@ class _VendorListScreenState extends State<VendorListScreen> {
     }
   }
 
-  void _applySearch(String val) {
-    final query = val.toLowerCase();
-
+  void _applyFilters({String? searchVal, String? statusVal}) {
+    final query = (searchVal ?? search).toLowerCase();
+    final status = statusVal ?? statusFilter;
     setState(() {
-      search = val;
+      if (searchVal != null) search = searchVal;
+      if (statusVal != null) statusFilter = statusVal;
       filtered = vendors.where((v) {
         final company = (v['company_name'] ?? '').toString().toLowerCase();
         final person = (v['contact_person'] ?? '').toString().toLowerCase();
         final email = (v['contact_email'] ?? '').toString().toLowerCase();
-        return company.contains(query) || person.contains(query) || email.contains(query);
+        final statusMatch = status.isEmpty || (v['status']?.toString().toLowerCase() == status);
+        return statusMatch && (company.contains(query) || person.contains(query) || email.contains(query));
       }).toList();
     });
   }
@@ -123,26 +128,71 @@ class _VendorListScreenState extends State<VendorListScreen> {
   }
 
   Widget _buildContent() {
+    final statusOptions = const [
+      {'key': '', 'label': 'All'},
+      {'key': 'pending', 'label': 'Pending'},
+      {'key': 'approved', 'label': 'Approved'},
+      {'key': 'rejected', 'label': 'Rejected'},
+    ];
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-          child: Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: TextField(
-                decoration: const InputDecoration(
-                  hintText: 'Search vendor...',
-                  prefixIcon: Icon(Icons.search),
-                  border: InputBorder.none,
+          child: Row(
+            children: [
+              // Expanded search bar
+              Expanded(
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'Search vendor...',
+                        prefixIcon: Icon(Icons.search),
+                        border: InputBorder.none,
+                      ),
+                      onChanged: (val) => _applyFilters(searchVal: val),
+                    ),
+                  ),
                 ),
-                onChanged: _applySearch,
               ),
-            ),
+              const SizedBox(width: 12),
+              // Dropdown for status filter
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blueGrey.shade100),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blueGrey.withOpacity(0.06),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: statusFilter,
+                    icon: const Icon(Icons.arrow_drop_down),
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
+                    items: statusOptions.map((opt) => DropdownMenuItem<String>(
+                      value: opt['key'],
+                      child: Text(opt['label']!),
+                    )).toList(),
+                    onChanged: (val) {
+                      if (val != null) _applyFilters(statusVal: val);
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
+        // Removed duplicate search bar and erroneous padding
         Expanded(child: _buildBody()),
       ],
     );

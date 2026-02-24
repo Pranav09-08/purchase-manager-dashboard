@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../overview/screens/overview_screen.dart';
 import '../../shared/widgets/pm_drawer.dart';
 import '../../vendor/screens/vendor_list_screen.dart';
+import '../../products/screens/product_list_screen.dart';
 
 
 class AdminDashboard extends StatefulWidget {
@@ -24,7 +25,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         print('[AdminDashboard] Building VendorListScreen');
         return const VendorListScreen(showAppBar: false);
       case '/products':
-        return _placeholderScreen('Products');
+        return const ProductListScreen();
       case '/components':
         return _placeholderScreen('Components');
       case '/required-components':
