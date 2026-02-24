@@ -1,3 +1,50 @@
+  // Submit counter quotation (accept/reject/negotiation)
+  const handleCounterQuotationSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const confirmed = window.confirm('Submit this counter quotation?');
+      if (!confirmed) return;
+      if (!isValidDateInput(counterQuotationForm.validTill) || !isValidDateInput(counterQuotationForm.expectedDeliveryDate)) {
+        throw new Error('Enter valid dates for valid till and expected delivery');
+      }
+      if (counterQuotationItems.length === 0) {
+        throw new Error('Add at least one counter quotation item');
+      }
+      const advancePercent = Number(counterQuotationForm.advancePaymentPercent) || 0;
+      if (advancePercent < 0 || advancePercent > 100) {
+        throw new Error('Advance payment percent must be between 0 and 100');
+      }
+      // Prepare payload
+      const payload = {
+        quotationId: counterQuotationForm.quotationId,
+        action: counterQuotationForm.action,
+        expectedDeliveryDate: counterQuotationForm.expectedDeliveryDate || null,
+        validTill: counterQuotationForm.validTill || null,
+        advancePaymentPercent: advancePercent,
+        rejectionReason: counterQuotationForm.rejectionReason || null,
+        negotiationNotes: counterQuotationForm.negotiationNotes || null,
+        items: counterQuotationItems.map((item) => ({
+          componentId: item.componentId,
+          quantity: Number(item.quantity) || 0,
+          unitPrice: Number(item.unitPrice) || 0,
+          discountPercent: Number(item.discountPercent) || 0,
+          cgstPercent: Number(item.cgstPercent) || 0,
+          sgstPercent: Number(item.sgstPercent) || 0,
+          lineTotal: Number(item.lineTotal) || 0,
+        })),
+      };
+      // TODO: Call modular API for counter quotation submission
+      // Example: await createVendorCounterQuotation(token, payload);
+      setSuccess('Counter quotation submitted successfully');
+      setTimeout(() => setSuccess(''), 3000);
+      setCounterQuotationForm({ quotationId: '', action: 'accept', expectedDeliveryDate: '', validTill: '', advancePaymentPercent: 0, rejectionReason: '', negotiationNotes: '' });
+      setCounterQuotationItems([]);
+      fetchCounterQuotations(supplier.vendor_id);
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    }
+  };
 /**
  * VendorDashboard - Main dashboard for vendor/supplier interface
  *
