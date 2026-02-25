@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
+<<<<<<< HEAD
+import { apiUrl, getAuthHeader } from '../../utils/api';
+=======
 import { listAvailableVendorComponents, addAvailableVendorComponent } from '../../api/vendor/components.api';
+>>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
 
 function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
   const [components, setComponents] = useState([]);
@@ -24,10 +28,26 @@ function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
   const fetchAvailableComponents = async () => {
     try {
       setLoading(true);
+<<<<<<< HEAD
+      const response = await fetch(apiUrl('/api/vendor/available-components'), {
+        headers: {
+          ...(await getAuthHeader()),
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setComponents(data.components || []);
+        setError('');
+      } else {
+        setError(data.error || 'Failed to fetch available components');
+        setComponents([]);
+      }
+=======
       const token = localStorage.getItem('token');
       const data = await listAvailableVendorComponents(token);
       setComponents(data.components || []);
       setError('');
+>>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to fetch available components');
       setComponents([]);
@@ -73,6 +93,34 @@ function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
         discount: parseFloat(formData.discount) || 0,
       };
 
+<<<<<<< HEAD
+      const response = await fetch(apiUrl('/api/vendor/add-available-component'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getAuthHeader()),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess(`${selectedComponent.component_name} added successfully!`);
+        setSelectedComponent(null);
+        
+        // Refresh available components
+        setTimeout(() => {
+          fetchAvailableComponents();
+          if (onComponentAdded) {
+            onComponentAdded(data.component);
+          }
+          setSuccess('');
+        }, 1500);
+      } else {
+        setError(data.error || 'Failed to add component');
+      }
+=======
       const token = localStorage.getItem('token');
       const { data } = await addAvailableVendorComponent(token, payload);
       setSuccess(`${selectedComponent.component_name} added successfully!`);
@@ -85,6 +133,7 @@ function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
         }
         setSuccess('');
       }, 1500);
+>>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to add component');
     } finally {

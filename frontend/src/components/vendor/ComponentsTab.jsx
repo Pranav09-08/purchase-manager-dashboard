@@ -29,13 +29,15 @@
 // Vendor components list and required components
 import { useState } from 'react';
 import AvailableComponentsModal from './AvailableComponentsModal';
+<<<<<<< HEAD
+import { apiUrl, getAuthHeader } from '../../utils/api';
+=======
 import apiClient from '../../api/apiClient';
+>>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
 
 function ComponentsTab({
   components,
-  requiredComponents,
   onOpenAddModal,
-  onAddFromRequired,
   onEditComponent,
   onDeleteComponent,
   onComponentAdded,
@@ -64,8 +66,26 @@ function ComponentsTab({
   const handleUpdateComponent = async (component) => {
     setLoading(true);
     try {
+<<<<<<< HEAD
+      const response = await fetch(apiUrl(`/api/vendor/components/${component.componentid}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getAuthHeader()),
+        },
+        body: JSON.stringify(component)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to update component');
+      }
+
+=======
       const { data } = await apiClient.put(`/api/vendor/components/${component.componentid}`, component);
       
+>>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
       if (data.resubmitted) {
         alert('Component resubmitted successfully! It\'s now pending PM review.');
       } else {
@@ -121,46 +141,6 @@ function ComponentsTab({
           </button>
         </div>
       </div>
-
-      {requiredComponents.length > 0 && (
-        <div className="section-card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Components Required by Company</h3>
-              <p className="text-sm text-slate-600">Add your offerings for these required components.</p>
-            </div>
-            <span className="text-xs font-semibold text-slate-500 uppercase">Total: {requiredComponents.length}</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {requiredComponents.map((required) => (
-              <div key={required.requestId || required.componentId || required.component_code} className="data-card">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h4 className="data-title">{required.component_name || required.title}</h4>
-                    <p className="data-subtitle">Required component</p>
-                  </div>
-                  <span className="data-pill">Open</span>
-                </div>
-                <p className="text-sm text-slate-600 mt-3 min-h-[40px]">
-                  {required.description || 'No notes provided.'}
-                </p>
-                <div className="mt-3 text-xs text-slate-500 grid grid-cols-2 gap-2">
-                  <span>Unit: {required.unit_of_measurement || required.measurement_unit || '—'}</span>
-                  <span>Size: {required.size ?? '—'}</span>
-                </div>
-                <div className="mt-4">
-                  <button
-                    onClick={() => onAddFromRequired(required)}
-                    className="w-full px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800"
-                  >
-                    Add Component
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div>
         {components.length === 0 ? (

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import apiClient from '../../api/apiClient';
 
 // Vendor enquiries list
-function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, getAuthHeaders, onRejectEnquiry }) {
+function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, getAuthHeaders, onRejectEnquiry, onEnquiryCreated, supplier }) {
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
   const [enquirySearch, setEnquirySearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -16,6 +16,19 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectLoading, setRejectLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    title: '',
+    description: '',
+    componentId: '',
+    quantity: 1,
+    unit: '',
+    specifications: '',
+    source: 'vendor_request',
+    notes: '',
+    requiredDeliveryDate: '',
+  });
   const seenSet = new Set(seenEnquiryIds);
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
   const resolveComponentId = (item) => item.component_id || item.componentId || item.componentid;
@@ -76,9 +89,22 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
     }
     setRejectLoading(true);
     try {
+<<<<<<< HEAD
+      const response = await fetch(
+        apiUrl(`/api/purchase/enquiry/${selectedEnquiry.enquiry_id}/reject`),
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(getAuthHeaders ? await getAuthHeaders() : {}),
+          },
+          body: JSON.stringify({ rejectionReason: rejectionReason.trim() }),
+        }
+=======
       const { data } = await apiClient.put(
         `/api/purchase/enquiry/${selectedEnquiry.enquiry_id}/reject`,
         { rejectionReason: rejectionReason.trim() }
+>>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
       );
       
       // Call parent callback if provided
@@ -96,18 +122,104 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
       setRejectLoading(false);
     }
   };
+
+  const handleCreateSalesEnquiry = async (e) => {
+    e.preventDefault();
+    if (!createForm.title.trim()) {
+      alert('Please enter title');
+      return;
+    }
+    if (!createForm.componentId) {
+      alert('Please select a component');
+      return;
+    }
+    if (Number(createForm.quantity) <= 0) {
+      alert('Quantity must be greater than 0');
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      const selectedComponent = componentCatalog.find((component) => {
+        const id = component.componentid || component.component_id || component.id;
+        return String(id) === String(createForm.componentId);
+      });
+      const componentName = selectedComponent?.component_name || selectedComponent?.name || 'Component';
+      const fallbackUnit = selectedComponent?.unit_of_measurement || selectedComponent?.measurement_unit || selectedComponent?.unit || null;
+
+      const payload = {
+        companyId: supplier?.vendor_id || supplier?.companyId || null,
+        vendorId: supplier?.vendor_id || null,
+        title: createForm.title.trim() || `${componentName} Enquiry`,
+        description: createForm.description?.trim() || createForm.specifications?.trim() || null,
+        notes: createForm.notes?.trim() || null,
+        requiredDeliveryDate: createForm.requiredDeliveryDate || null,
+        source: createForm.source || 'vendor_request',
+        items: [
+          {
+            componentId: createForm.componentId,
+            quantity: Number(createForm.quantity),
+            unit: createForm.unit?.trim() || fallbackUnit,
+            specifications: createForm.specifications?.trim() || null,
+          },
+        ],
+      };
+
+      const response = await fetch(apiUrl('/api/purchase/enquiry'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(getAuthHeaders ? await getAuthHeaders() : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to create enquiry');
+
+      setShowCreateModal(false);
+      setCreateForm({
+        title: '',
+        description: '',
+        componentId: '',
+        quantity: 1,
+        unit: '',
+        specifications: '',
+        source: 'vendor_request',
+        notes: '',
+        requiredDeliveryDate: '',
+      });
+      if (onEnquiryCreated) {
+        onEnquiryCreated(data.enquiry);
+      }
+      alert('Enquiry created successfully');
+    } catch (err) {
+      alert(err.message || 'Failed to create enquiry');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold text-slate-900">Purchase Enquiries</h2>
-        <p className="text-sm text-slate-500">
-          Review enquiries sent by the purchase manager.
-          {unreadCount > 0 && (
-            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-              {unreadCount} unread
-            </span>
-          )}
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold text-slate-900">Purchase Enquiries</h2>
+          <p className="text-sm text-slate-500">
+            Review enquiries sent by the purchase manager.
+            {unreadCount > 0 && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                {unreadCount} unread
+              </span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition"
+        >
+          Create Enquiry for Sales Manager
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4">
@@ -361,6 +473,158 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
                 {rejectLoading ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">Create Enquiry for Sales Manager</h2>
+
+            <form onSubmit={handleCreateSalesEnquiry} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Title</label>
+                <input
+                  type="text"
+                  value={createForm.title}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                  placeholder="Enter enquiry title"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Description</label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
+                  rows="3"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                  placeholder="Describe enquiry details"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Component</label>
+                  <select
+                    value={createForm.componentId}
+                    onChange={(e) => {
+                      const nextComponentId = e.target.value;
+                      const selectedComponent = componentCatalog.find((component) => {
+                        const id = component.componentid || component.component_id || component.id;
+                        return String(id) === String(nextComponentId);
+                      });
+                      const defaultUnit = selectedComponent?.unit_of_measurement || selectedComponent?.measurement_unit || selectedComponent?.unit || '';
+                      setCreateForm((prev) => ({ ...prev, componentId: nextComponentId, unit: prev.unit || defaultUnit }));
+                    }}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select component</option>
+                    {componentCatalog.map((component) => {
+                      const id = component.componentid || component.component_id || component.id;
+                      const name = component.component_name || component.name || 'Component';
+                      return (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={createForm.quantity}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Unit</label>
+                  <input
+                    type="text"
+                    value={createForm.unit}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, unit: e.target.value }))}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    placeholder="e.g. pcs, kg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Specifications</label>
+                  <input
+                    type="text"
+                    value={createForm.specifications}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, specifications: e.target.value }))}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    placeholder="Optional requirements"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Source</label>
+                  <select
+                    value={createForm.source}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, source: e.target.value }))}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                  >
+                    <option value="vendor_request">Vendor Request</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="planning">Planning</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Notes</label>
+                  <input
+                    type="text"
+                    value={createForm.notes}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    placeholder="Optional notes"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Required Delivery Date</label>
+                <input
+                  type="date"
+                  value={createForm.requiredDeliveryDate}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, requiredDeliveryDate: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createLoading}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition disabled:opacity-50"
+                >
+                  {createLoading ? 'Sending...' : 'Send Enquiry'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

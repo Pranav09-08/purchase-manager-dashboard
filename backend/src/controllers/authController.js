@@ -466,58 +466,108 @@ exports.updateCertificateStatus = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-// Update Vendor Profile (by authenticated vendor)
-exports.updateVendorProfile = async (req, res) => {
+const canAccessVendorProfile = (reqUser, vendorId) => {
+  if (!reqUser || !vendorId) return false;
+  if (reqUser.type === 'admin') return true;
+  return reqUser.type === 'vendor' && reqUser.vendor_id === vendorId;
+};
+
+const normalizeVendorProfilePayload = (body = {}) => ({
+  company_name: body.company_name || null,
+  company_tin: body.company_tin || null,
+  address: body.address || null,
+  contact_person: body.contact_person || null,
+  contact_email: body.contact_email || null,
+  contact_phone: body.contact_phone || null,
+  company_website: body.company_website || null,
+  updated_at: new Date().toISOString(),
+});
+
+// Get Vendor Profile (vendor self or admin)
+exports.getVendorProfile = async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
+    const { vendorId } = req.params;
+
+    if (!canAccessVendorProfile(req.user, vendorId)) {
+      return res.status(403).json({ error: 'Not authorized to access this profile' });
     }
 
-    // Decode token to get vendor_id
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const vendorId = decoded.vendor_id;
+    const { data, error } = await supabase
+      .from('vendorregistration')
+      .select('*')
+      .eq('vendor_id', vendorId)
+      .single();
 
-    const {
-      company_name,
-      company_tin,
-      address,
-      contact_person,
-      contact_email,
-      contact_phone,
-      company_website,
-    } = req.body;
+    if (error || !data) {
+      return res.status(404).json({ error: 'Vendor profile not found' });
+    }
 
-    // Validate required fields
-    if (!company_name || !contact_email) {
+    res.json({ vendor: data });
+  } catch (error) {
+    console.error('Error getting vendor profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get Vendor Profile (legacy self route)
+exports.getOwnVendorProfile = async (req, res) => {
+  try {
+    if (!req.user || req.user.type !== 'vendor' || !req.user.vendor_id) {
+      return res.status(403).json({ error: 'Only vendors can access their profile from this route' });
+    }
+
+    req.params.vendorId = req.user.vendor_id;
+    return exports.getVendorProfile(req, res);
+  } catch (error) {
+    console.error('Error getting own vendor profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update Vendor Profile by vendorId (vendor self or admin)
+exports.updateVendorProfileById = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+
+    if (!canAccessVendorProfile(req.user, vendorId)) {
+      return res.status(403).json({ error: 'Not authorized to update this profile' });
+    }
+
+    const payload = normalizeVendorProfilePayload(req.body);
+    if (!payload.company_name || !payload.contact_email) {
       return res.status(400).json({ error: 'Company name and email are required' });
     }
 
-    // Update vendor profile
     const { data, error } = await supabase
       .from('vendorregistration')
-      .update({
-        company_name,
-        company_tin: company_tin || null,
-        address: address || null,
-        contact_person: contact_person || null,
-        contact_email,
-        contact_phone: contact_phone || null,
-        company_website: company_website || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(payload)
       .eq('vendor_id', vendorId)
       .select()
       .single();
 
-    if (error) {
-      return res.status(400).json({ error: error.message });
+    if (error || !data) {
+      return res.status(400).json({ error: error?.message || 'Failed to update vendor profile' });
     }
 
     res.json({
       message: 'Profile updated successfully',
       vendor: data,
     });
+  } catch (error) {
+    console.error('Error updating vendor profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update Vendor Profile (legacy self route)
+exports.updateVendorProfile = async (req, res) => {
+  try {
+    if (!req.user || req.user.type !== 'vendor' || !req.user.vendor_id) {
+      return res.status(403).json({ error: 'Only vendors can update their profile from this route' });
+    }
+
+    req.params.vendorId = req.user.vendor_id;
+    return exports.updateVendorProfileById(req, res);
   } catch (error) {
     console.error('Error updating vendor profile:', error);
     res.status(500).json({ error: error.message });

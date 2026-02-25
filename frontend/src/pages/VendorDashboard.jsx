@@ -82,7 +82,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
 import { listVendorComponents } from '../api/vendor/components.api';
-import { listRequiredComponents } from '../api/vendor/requiredComponents.api';
 import { listVendorEnquiries } from '../api/vendor/enquiries.api';
 import { listVendorQuotations } from '../api/vendor/quotations.api';
 import { createVendorQuotation } from '../api/vendor/quotations.api';
@@ -104,6 +103,7 @@ import PaymentsTab from '../components/vendor/PaymentsTab';
 import InvoicesTab from '../components/vendor/InvoicesTab';
 import AddComponentModal from '../components/vendor/AddComponentModal';
 import FloatingNotice from '../components/FloatingNotice';
+import { apiUrl } from '../utils/api';
 
 
 // Default form values for add/edit component
@@ -166,7 +166,6 @@ function VendorDashboard() {
   
   // ==================== Procurement Workflow Data ====================
   const [components, setComponents] = useState([]); // Vendor's product catalog
-  const [requiredComponents, setRequiredComponents] = useState([]); // PM's required components list
   const [purchaseEnquiries, setPurchaseEnquiries] = useState([]); // Enquiries from PM
   const [purchaseQuotations, setPurchaseQuotations] = useState([]); // Vendor's submitted quotations
   const [counterQuotations, setCounterQuotations] = useState([]); // PM's counter quotations
@@ -250,6 +249,22 @@ function VendorDashboard() {
     if (!currentUser) return;
     const token = idToken || (await getIdToken());
     const data = await listVendorComponents(token);
+<<<<<<< HEAD
+    const componentList = data.products || [];
+    const dedupedComponents = Array.from(
+      new Map(
+        componentList.map((component) => {
+          const dedupeKey =
+            component.componentid ||
+            component.component_id ||
+            component.component_code ||
+            `${component.component_name || ''}-${component.item_no || ''}-${component.vendorid || component.vendor_id || ''}`;
+          return [String(dedupeKey), component];
+        })
+      ).values()
+    );
+    setComponents(dedupedComponents);
+=======
     setComponents(data.products || []);
   };
 
@@ -260,6 +275,7 @@ function VendorDashboard() {
     const vendorId = currentUser?.uid || currentUser?.vendorId || currentUser?.id;
     const data = await listRequiredComponents(token, vendorId);
     setRequiredComponents(data.requiredComponents || []);
+>>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
   };
 
   // ==================== Data Fetching - Purchase Workflow ====================
@@ -363,7 +379,6 @@ function VendorDashboard() {
         setLoading(true);
         await Promise.all([
           fetchComponents(),
-          fetchRequiredComponents(),
           fetchPurchaseEnquiries(supplier.vendor_id),
           fetchPurchaseQuotations(supplier.vendor_id),
           fetchCounterQuotations(supplier.vendor_id),
@@ -762,7 +777,8 @@ function VendorDashboard() {
           body: JSON.stringify(submitData),
         });
 
-        if (!response.ok) throw new Error('Failed to update component');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Failed to update component');
 
         setSuccess('Component updated successfully!');
         setShowAddModal(false);
@@ -777,7 +793,8 @@ function VendorDashboard() {
           body: JSON.stringify(submitData),
         });
 
-        if (!response.ok) throw new Error('Failed to add component');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Failed to add component');
 
         setSuccess('Component added successfully!');
         setShowAddModal(false);
@@ -1127,9 +1144,7 @@ function VendorDashboard() {
       {currentPage === 'components' && (
         <ComponentsTab
           components={components}
-          requiredComponents={requiredComponents}
           onOpenAddModal={openAddModal}
-          onAddFromRequired={handleAddFromRequired}
           onEditComponent={handleEditComponent}
           onDeleteComponent={handleDeleteComponent}
           onComponentAdded={fetchComponents}
@@ -1144,6 +1159,8 @@ function VendorDashboard() {
           onCreateQuotation={goToQuotationsWithEnquiry}
           getAuthHeaders={getAuthHeaders}
           onRejectEnquiry={() => fetchPurchaseEnquiries(supplier.vendor_id)}
+          onEnquiryCreated={() => fetchPurchaseEnquiries(supplier.vendor_id)}
+          supplier={supplier}
         />
       )}
       {currentPage === 'quotations' && (
