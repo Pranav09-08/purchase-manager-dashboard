@@ -1,7 +1,7 @@
 // Vendor registration page
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiUrl } from '../utils/api';
+import vendorAuthApi from '../api/vendor/auth.api';
 
 function VendorRegister() {
   const navigate = useNavigate();
@@ -38,21 +38,7 @@ function VendorRegister() {
 
     try {
       // Register vendor (no password needed - will be set via email link)
-      const response = await fetch(apiUrl('/api/auth/register'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Registration failed');
-        return;
-      }
-
+      const { data } = await vendorAuthApi.register(formData);
       setMessage(data.message || 'Registration submitted successfully. Check your email to set password. Please wait for admin approval.');
       setTimeout(() => {
         navigate('/vendor/login');

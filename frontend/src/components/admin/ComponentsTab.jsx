@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { apiUrl } from '../../utils/api';
+import apiClient from '../../api/apiClient';
 
 // Product-specific components view
 function ComponentsTab({
@@ -50,13 +50,11 @@ function ComponentsTab({
     try {
       setVendorsLoading(true);
       setVendorsError('');
-      const url = componentCode
-        ? apiUrl(`/api/components/${componentCode}/vendors`)
-        : apiUrl(`/api/components/unknown/vendors?componentName=${encodeURIComponent(componentName)}`);
-      const response = await fetch(url);
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch vendors');
+      let data;
+      if (componentCode) {
+        ({ data } = await apiClient.get(`/api/components/${componentCode}/vendors`));
+      } else {
+        ({ data } = await apiClient.get(`/api/components/unknown/vendors?componentName=${encodeURIComponent(componentName)}`));
       }
       setVendors(data.vendors || []);
     } catch (err) {

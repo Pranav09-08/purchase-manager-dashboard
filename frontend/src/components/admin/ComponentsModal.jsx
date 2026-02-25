@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiUrl } from '../../utils/api';
+import apiClient from '../../api/apiClient';
 
 // Modal to display components for a product
 function ComponentsModal({ selectedProduct, components, onClose }) {
@@ -18,13 +18,8 @@ function ComponentsModal({ selectedProduct, components, onClose }) {
   const fetchVendors = async (componentCode) => {
     try {
       setVendorsLoading(true);
-      const response = await fetch(apiUrl(`/api/components/${componentCode}/vendors`));
-      const data = await response.json();
-      if (response.ok) {
-        setVendors(data.vendors || []);
-      } else {
-        setVendors([]);
-      }
+      const { data } = await apiClient.get(`/api/components/${componentCode}/vendors`);
+      setVendors(data.vendors || []);
     } catch (err) {
       console.error('Error fetching vendors:', err);
       setVendors([]);

@@ -1,3 +1,25 @@
+// Get Vendor Profile (by authenticated vendor)
+exports.getVendorProfile = async (req, res) => {
+  try {
+    // req.user is set by authenticateToken middleware
+    if (!req.user || req.user.type !== 'vendor') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const vendorId = req.user.vendor_id;
+    const { data, error } = await supabase
+      .from('vendorregistration')
+      .select('*')
+      .eq('vendor_id', vendorId)
+      .single();
+    if (error || !data) {
+      return res.status(404).json({ error: 'Vendor profile not found' });
+    }
+    res.json({ supplier: data });
+  } catch (error) {
+    console.error('Error fetching vendor profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 const supabase = require('../config/supabase');
 const { v4: uuidv4 } = require('uuid');
 const firebaseAuthUtils = require('../config/firebaseAuth');

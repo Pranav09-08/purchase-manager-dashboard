@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import vendorProductsApi from '../api/vendor/products.api';
+import { useAuth } from '../contexts/AuthContext';
 
 function Products() {
   const navigate = useNavigate();
+  const { idToken, getIdToken, currentUser } = useAuth();
   const [products, setProducts] = useState([]);
   const [supplier, setSupplier] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -52,7 +54,7 @@ function Products() {
   // Load vendor products
   const fetchProducts = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = idToken || (await getIdToken());
       const { data } = await vendorProductsApi.list(token);
       setProducts(data.products || data || []);
     } catch (err) {
@@ -75,7 +77,7 @@ function Products() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = idToken || (await getIdToken());
       await vendorProductsApi.create(token, formData);
       setSuccess('Product added successfully!');
       setShowAddModal(false);
@@ -103,7 +105,6 @@ function Products() {
 
   // Clear vendor session
   const handleLogout = () => {
-    localStorage.removeItem('token');
     localStorage.removeItem('supplier');
     navigate('/vendor/login');
   };

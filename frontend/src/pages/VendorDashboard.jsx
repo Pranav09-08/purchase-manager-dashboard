@@ -1,3 +1,50 @@
+  // Submit counter quotation (accept/reject/negotiation)
+  const handleCounterQuotationSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const confirmed = window.confirm('Submit this counter quotation?');
+      if (!confirmed) return;
+      if (!isValidDateInput(counterQuotationForm.validTill) || !isValidDateInput(counterQuotationForm.expectedDeliveryDate)) {
+        throw new Error('Enter valid dates for valid till and expected delivery');
+      }
+      if (counterQuotationItems.length === 0) {
+        throw new Error('Add at least one counter quotation item');
+      }
+      const advancePercent = Number(counterQuotationForm.advancePaymentPercent) || 0;
+      if (advancePercent < 0 || advancePercent > 100) {
+        throw new Error('Advance payment percent must be between 0 and 100');
+      }
+      // Prepare payload
+      const payload = {
+        quotationId: counterQuotationForm.quotationId,
+        action: counterQuotationForm.action,
+        expectedDeliveryDate: counterQuotationForm.expectedDeliveryDate || null,
+        validTill: counterQuotationForm.validTill || null,
+        advancePaymentPercent: advancePercent,
+        rejectionReason: counterQuotationForm.rejectionReason || null,
+        negotiationNotes: counterQuotationForm.negotiationNotes || null,
+        items: counterQuotationItems.map((item) => ({
+          componentId: item.componentId,
+          quantity: Number(item.quantity) || 0,
+          unitPrice: Number(item.unitPrice) || 0,
+          discountPercent: Number(item.discountPercent) || 0,
+          cgstPercent: Number(item.cgstPercent) || 0,
+          sgstPercent: Number(item.sgstPercent) || 0,
+          lineTotal: Number(item.lineTotal) || 0,
+        })),
+      };
+      // TODO: Call modular API for counter quotation submission
+      // Example: await createVendorCounterQuotation(token, payload);
+      setSuccess('Counter quotation submitted successfully');
+      setTimeout(() => setSuccess(''), 3000);
+      setCounterQuotationForm({ quotationId: '', action: 'accept', expectedDeliveryDate: '', validTill: '', advancePaymentPercent: 0, rejectionReason: '', negotiationNotes: '' });
+      setCounterQuotationItems([]);
+      fetchCounterQuotations(supplier.vendor_id);
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    }
+  };
 /**
  * VendorDashboard - Main dashboard for vendor/supplier interface
  *
@@ -37,11 +84,13 @@ import DashboardLayout from '../components/DashboardLayout';
 import { listVendorComponents } from '../api/vendor/components.api';
 import { listVendorEnquiries } from '../api/vendor/enquiries.api';
 import { listVendorQuotations } from '../api/vendor/quotations.api';
+import { createVendorQuotation } from '../api/vendor/quotations.api';
 import { listVendorCounterQuotations } from '../api/vendor/counterQuotations.api';
 import { listVendorLois } from '../api/vendor/lois.api';
 import { listVendorOrders } from '../api/vendor/orders.api';
 import { listVendorPayments } from '../api/vendor/payments.api';
 import { listVendorInvoices } from '../api/vendor/invoices.api';
+import { getVendorProfile } from '../api/vendor/profile.api';
 // Add similar imports for orders, payments, invoices if needed
 import OverviewTab from '../components/vendor/OverviewTab';
 import VendorAnalyticsTab from '../components/vendor/VendorAnalyticsTab';
@@ -96,6 +145,24 @@ function VendorDashboard() {
   // ==================== Core Vendor & Navigation State ====================
   const [supplier, setSupplier] = useState(null);
   const [currentPage, setCurrentPage] = useState('overview');
+
+  // Set supplier when user logs in, fetch full profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (currentUser && idToken) {
+        try {
+          const profile = await getVendorProfile(idToken);
+          setSupplier(profile.supplier || profile);
+          setAccountFormData(buildAccountFormData(profile.supplier || profile));
+        } catch (err) {
+          setSupplier(currentUser); // fallback
+        }
+      } else {
+        setSupplier(null);
+      }
+    };
+    fetchProfile();
+  }, [currentUser, idToken]);
   
   // ==================== Procurement Workflow Data ====================
   const [components, setComponents] = useState([]); // Vendor's product catalog
@@ -182,6 +249,7 @@ function VendorDashboard() {
     if (!currentUser) return;
     const token = idToken || (await getIdToken());
     const data = await listVendorComponents(token);
+<<<<<<< HEAD
     const componentList = data.products || [];
     const dedupedComponents = Array.from(
       new Map(
@@ -196,6 +264,18 @@ function VendorDashboard() {
       ).values()
     );
     setComponents(dedupedComponents);
+=======
+    setComponents(data.products || []);
+  };
+
+  /** Fetch PM's required components list for reference */
+  const fetchRequiredComponents = async () => {
+    if (!currentUser) return;
+    const token = idToken || (await getIdToken());
+    const vendorId = currentUser?.uid || currentUser?.vendorId || currentUser?.id;
+    const data = await listRequiredComponents(token, vendorId);
+    setRequiredComponents(data.requiredComponents || []);
+>>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
   };
 
   // ==================== Data Fetching - Purchase Workflow ====================
@@ -277,37 +357,18 @@ function VendorDashboard() {
   useEffect(() => {
     // Wait for Firebase auth to initialize
     if (authLoading) {
+      setLoading(true);
       console.log('⏳ Waiting for Firebase auth to initialize...');
       return;
     }
-
-    // Redirect to login if not authenticated with Firebase
-    if (!currentUser) {
-      console.log('❌ No Firebase user - redirecting to vendor login');
-      navigate('/vendor/login');
+    if (!authLoading && !idToken) {
+      setLoading(true);
       return;
     }
-
-    // Wait for idToken to be available before proceeding
-    if (!idToken) {
-      console.log('⏳ Waiting for Firebase ID token...');
-      return;
+    if (!authLoading && idToken) {
+      setLoading(false);
     }
-
-    // For now, we'll fetch supplier data from the backend using Firebase token
-    // In the future, supplier data should come from Firestore or backend API
-    const storedSupplier = localStorage.getItem('supplier');
-    if (storedSupplier) {
-      try {
-        const parsedSupplier = JSON.parse(storedSupplier);
-        setSupplier(parsedSupplier);
-        setAccountFormData(buildAccountFormData(parsedSupplier));
-      } catch (err) {
-        console.error('Error parsing supplier data:', err);
-      }
-    }
-  }, [currentUser, authLoading, idToken, navigate]);
-
+  }, [authLoading, idToken]);
   // Load dashboard data when supplier is ready
   useEffect(() => {
     let isMounted = true;
@@ -593,22 +654,14 @@ function VendorDashboard() {
     );
   };
 
-  // Update vendor profile information
+  // Update vendor profile information using modular API
   const handleUpdateAccount = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(apiUrl('/api/supplier/profile'), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify(accountFormData),
+      const token = idToken || (await getIdToken());
+      const { data } = await apiClient.put('/api/supplier/profile', accountFormData, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!response.ok) throw new Error('Failed to update account');
-
-      const data = await response.json();
       setSupplier(data.supplier);
       localStorage.setItem('supplier', JSON.stringify(data.supplier));
       setAccountFormData(buildAccountFormData(data.supplier));
@@ -889,16 +942,8 @@ function VendorDashboard() {
         notes: vendorQuotationForm.notes || null,
       };
 
-      const response = await fetch(apiUrl('/api/vendor/quotation'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to create quotation');
+      const token = idToken || (await getIdToken());
+      await createVendorQuotation(token, payload);
       setSuccess('Quotation sent successfully');
       setTimeout(() => setSuccess(''), 3000);
       setVendorQuotationForm({ enquiryId: '', validTill: '', expectedDeliveryDate: '', advancePaymentPercent: 0, notes: '' });
@@ -910,133 +955,13 @@ function VendorDashboard() {
     }
   };
 
-  const handleCounterQuotationSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const confirmed = window.confirm('Submit this counter quotation?');
-      if (!confirmed) return;
-      if (!isValidDateInput(counterQuotationForm.validTill) || !isValidDateInput(counterQuotationForm.expectedDeliveryDate)) {
-        throw new Error('Enter valid dates for valid till and expected delivery');
-      }
-      if (counterQuotationForm.action === 'negotiate' && counterQuotationItems.length === 0) {
-        throw new Error('Add at least one negotiation item');
-      }
-      const advancePercent = Number(counterQuotationForm.advancePaymentPercent) || 0;
-      if (advancePercent < 0 || advancePercent > 100) {
-        throw new Error('Advance payment percent must be between 0 and 100');
-      }
-      const payload = {
-        quotationId: counterQuotationForm.quotationId,
-        action: counterQuotationForm.action,
-        expectedDeliveryDate: counterQuotationForm.expectedDeliveryDate || null,
-        validTill: counterQuotationForm.validTill || null,
-        advancePaymentPercent: advancePercent,
-        rejectionReason: counterQuotationForm.rejectionReason || null,
-        negotiationNotes: counterQuotationForm.negotiationNotes || null,
-        items: counterQuotationForm.action === 'negotiate'
-          ? counterQuotationItems.map((item) => ({
-            componentId: item.componentId,
-            quantity: Number(item.quantity) || 0,
-            unitPrice: Number(item.unitPrice) || 0,
-            discountPercent: Number(item.discountPercent) || 0,
-            cgstPercent: Number(item.cgstPercent) || 0,
-            sgstPercent: Number(item.sgstPercent) || 0,
-            lineTotal: Number(item.lineTotal) || 0,
-          }))
-          : [],
-      };
-
-      const response = await fetch(apiUrl('/api/vendor/counter-quotation'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to submit counter quotation');
-      setSuccess('Counter quotation submitted');
-      setTimeout(() => setSuccess(''), 3000);
-      setCounterQuotationForm({
-        quotationId: '',
-        action: 'accept',
-        expectedDeliveryDate: '',
-        validTill: '',
-        advancePaymentPercent: 0,
-        rejectionReason: '',
-        negotiationNotes: '',
-      });
-      setCounterQuotationItems([]);
-      fetchCounterQuotations(supplier.vendor_id);
-      fetchPurchaseQuotations(supplier.vendor_id);
-    } catch (err) {
-      setError(err.message);
-      setTimeout(() => setError(''), 3000);
-    }
-  };
-
-  const handleLoiAction = async (loiId, action) => {
-    try {
-      const confirmed = window.confirm(`Confirm ${action} LOI?`);
-      if (!confirmed) return;
-      const response = await fetch(apiUrl(`/api/vendor/loi/${loiId}/${action}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to update LOI');
-      setSuccess(`LOI ${action}ed successfully`);
-      setTimeout(() => setSuccess(''), 3000);
-      fetchPurchaseLois(supplier.vendor_id);
-    } catch (err) {
-      setError(err.message);
-      setTimeout(() => setError(''), 3000);
-    }
-  };
-
-  const handleOrderConfirm = async (orderId) => {
-    try {
-      const confirmed = window.confirm('Confirm this order?');
-      if (!confirmed) return;
-      const response = await fetch(apiUrl(`/api/vendor/order/${orderId}/confirm`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to confirm order');
-      setSuccess('Order confirmed');
-      setTimeout(() => setSuccess(''), 3000);
-      fetchPurchaseOrders(supplier.vendor_id);
-    } catch (err) {
-      setError(err.message);
-      setTimeout(() => setError(''), 3000);
-    }
-  };
-
   const handlePaymentReceived = async (paymentId) => {
     try {
       const confirmed = window.confirm('Confirm payment receipt?');
       if (!confirmed) return;
       const receiptReference = window.prompt('Enter receipt reference (optional):') || null;
-      const response = await fetch(apiUrl(`/api/vendor/payment/${paymentId}/receipt`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify({ receiptReference }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to send payment receipt');
+      const token = idToken || (await getIdToken());
+      await vendorPaymentReceipt(token, paymentId, receiptReference);
       setSuccess('Payment receipt sent');
       setTimeout(() => setSuccess(''), 3000);
       fetchPurchasePayments(supplier.vendor_id);
@@ -1080,16 +1005,8 @@ function VendorDashboard() {
         })),
       };
 
-      const response = await fetch(apiUrl('/api/vendor/invoice'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to create invoice');
+      const token = idToken || (await getIdToken());
+      await createVendorInvoice(token, payload);
       setSuccess('Invoice created successfully');
       setTimeout(() => setSuccess(''), 3000);
       setInvoiceForm({ loiId: '', orderId: '', companyId: '', vendorId: supplier.vendor_id, notes: '' });
