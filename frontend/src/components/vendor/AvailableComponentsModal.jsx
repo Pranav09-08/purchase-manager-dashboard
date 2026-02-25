@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiUrl } from '../../utils/api';
+import { apiUrl, getAuthHeader } from '../../utils/api';
 
 function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
   const [components, setComponents] = useState([]);
@@ -24,10 +24,9 @@ function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
   const fetchAvailableComponents = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       const response = await fetch(apiUrl('/api/vendor/available-components'), {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          ...(await getAuthHeader()),
         },
       });
       const data = await response.json();
@@ -83,12 +82,11 @@ function AvailableComponentsModal({ isOpen, onClose, onComponentAdded }) {
         discount: parseFloat(formData.discount) || 0,
       };
 
-      const token = localStorage.getItem('token');
       const response = await fetch(apiUrl('/api/vendor/add-available-component'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          ...(await getAuthHeader()),
         },
         body: JSON.stringify(payload),
       });

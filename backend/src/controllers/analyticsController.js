@@ -11,6 +11,29 @@ const getCount = async (table, filters = []) => {
   return count || 0;
 };
 
+const getDistinctEnquiryCount = async (filters = []) => {
+  let query = supabase.from('purchase_enquiry_items').select('enquiry_id');
+  filters.forEach((filter) => {
+    query = query[filter.method](filter.column, filter.value);
+  });
+
+  let { data, error } = await query;
+
+  if (error) {
+    const hasMissingStatusColumn = (error.message || '').includes("Could not find the 'status' column");
+    if (hasMissingStatusColumn) {
+      const fallbackResult = await supabase.from('purchase_enquiry_items').select('enquiry_id');
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
+  }
+
+  if (error) throw error;
+
+  const unique = new Set((data || []).map((row) => row.enquiry_id).filter(Boolean));
+  return unique.size;
+};
+
 // Purchase manager analytics summary
 exports.getPurchaseManagerAnalytics = async (req, res) => {
   try {
@@ -28,8 +51,8 @@ exports.getPurchaseManagerAnalytics = async (req, res) => {
       paymentsAmount,
       vendorsConnected,
     ] = await Promise.all([
-      getCount('purchase_enquiry'),
-      getCount('purchase_enquiry', [{ method: 'neq', column: 'status', value: 'pending' }]),
+      getDistinctEnquiryCount(),
+      getDistinctEnquiryCount([{ method: 'neq', column: 'status', value: 'pending' }]),
       getCount('purchase_quotation'),
       getCount('purchase_loi'),
       getCount('vendor_invoice'),

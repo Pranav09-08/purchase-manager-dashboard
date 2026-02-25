@@ -13,6 +13,9 @@ router.post('/auth/login', authController.loginVendor); // Unified login for bot
 router.post('/auth/admin-login', adminAuthController.loginAdmin);
 
 // Vendor routes (authenticated)
+router.get('/vendor/profile', authController.authenticateToken, authController.getOwnVendorProfile);
+router.get('/vendor/profile/:vendorId', authController.authenticateToken, authController.getVendorProfile);
+router.put('/vendor/profile/:vendorId', authController.authenticateToken, authController.updateVendorProfileById);
 router.put('/vendor/profile', authController.authenticateToken, authController.updateVendorProfile);
 
 // Admin management routes (authenticated - requires super_admin)

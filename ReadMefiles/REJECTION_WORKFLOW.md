@@ -74,7 +74,7 @@ This document describes the comprehensive rejection workflow implemented for pur
 
 **New Column:**
 ```sql
-ALTER TABLE purchase_enquiry 
+ALTER TABLE purchase_enquiry_items
 ADD COLUMN rejection_reason TEXT DEFAULT NULL;
 ```
 
@@ -303,7 +303,7 @@ Alert: "Error rejecting enquiry"
    ```sql
    SELECT column_name, data_type 
    FROM information_schema.columns 
-   WHERE table_name = 'purchase_enquiry' 
+   WHERE table_name = 'purchase_enquiry_items' 
    AND column_name = 'rejection_reason';
    ```
 

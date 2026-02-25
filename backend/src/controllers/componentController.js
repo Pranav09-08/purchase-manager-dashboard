@@ -168,24 +168,12 @@ exports.getVendorComponents = async (req, res) => {
       return res.status(400).json({ error: 'Vendor ID is required' });
     }
 
-    // Get company linked to this vendor
-    const company = await getCompanyForVendor(vendorId);
-
-    if (!company) {
-      console.error('Company not found for vendor:', vendorId);
-      return res.status(500).json({ error: 'Failed to get or create company for vendor', vendorId });
-    }
-
-    // Get all vendor components for this vendor/company
-    const companyId = company.companyId;
-    const filter = companyId
-      ? `vendorid.eq.${vendorId},companyid.eq.${companyId}`
-      : `vendorid.eq.${vendorId}`;
+    // Get vendor-owned active components only
 
     const { data: components, error: componentsError } = await supabase
       .from('vendor_components')
       .select('*')
-      .or(filter)
+      .eq('vendorid', vendorId)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
@@ -211,19 +199,18 @@ exports.getRequiredComponents = async (req, res) => {
     }
 
     const companies = await getAllCompaniesForVendor(vendorId);
+    const companyIds = (companies || []).map(c => c.companyId).filter(Boolean);
 
-    if (!companies || companies.length === 0) {
-      return res.json({ requiredComponents: [] });
-    }
-
-    const companyIds = companies.map(c => c.companyId);
-
-    const { data: components, error: componentsError } = await supabase
+    let query = supabase
       .from('Components')
       .select('componentId, component_code, component_name, description, unit_of_measurement, size, companyId')
-      .in('companyId', companyIds)
-      .eq('active', true)
       .order('created_at', { ascending: false });
+
+    if (companyIds.length > 0) {
+      query = query.in('companyId', companyIds);
+    }
+
+    const { data: components, error: componentsError } = await query;
 
     if (componentsError) throw componentsError;
 
@@ -368,7 +355,6 @@ exports.addVendorComponent = async (req, res) => {
           sgst: parseFloat(sgst) || 0,
           lead_time_days: parseInt(delivery_terms) || 0,
           is_active: true,
-          status: 'pending', // New components await PM approval
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -583,34 +569,28 @@ exports.getAvailableComponentsForVendor = async (req, res) => {
 
     console.log('Fetching available components for vendor:', vendorId);
 
-    // Get companies linked to this vendor via the junction table
     const companies = await getAllCompaniesForVendor(vendorId);
+    const companyIds = (companies || []).map(c => c.companyId).filter(Boolean);
+    console.log(`Found ${companies?.length || 0} linked companies for vendor:`, companyIds);
 
-    if (!companies || companies.length === 0) {
-      console.log('No companies found for vendor:', vendorId);
-      return res.json({ 
-        components: [], 
-        message: 'No companies associated with this vendor. Please contact admin to link your vendor account to companies.',
-        debug: { vendorId }
-      });
-    }
-
-    const companyIds = companies.map(c => c.companyId);
-    console.log(`Found ${companies.length} companies for vendor:`, companyIds);
-
-    // Get all active components from vendor's associated companies
-    const { data: allComponents, error: componentsError } = await supabase
+    // Fetch components from linked companies if available, else fallback to all companies' components
+    let componentQuery = supabase
       .from('Components')
       .select('componentId, component_code, component_name, description, unit_of_measurement, size, companyId')
-      .in('companyId', companyIds)
-      .eq('active', true);
+      .order('created_at', { ascending: false });
+
+    if (companyIds.length > 0) {
+      componentQuery = componentQuery.in('companyId', companyIds);
+    }
+
+    const { data: allComponents, error: componentsError } = await componentQuery;
 
     if (componentsError) {
       console.error('Error fetching components:', componentsError);
       throw componentsError;
     }
 
-    console.log(`Found ${allComponents?.length || 0} total active components from vendor's companies`);
+    console.log(`Found ${allComponents?.length || 0} components from Components table`);
 
     // Get components already supplied by this vendor
     let { data: vendorComponents, error: vendorComponentsError } = await supabase
@@ -672,18 +652,19 @@ exports.addAvailableComponent = async (req, res) => {
     }
 
     const companies = await getAllCompaniesForVendor(vendorId);
-    const companyIds = companies.map((comp) => comp.companyId).filter(Boolean);
-    if (companyIds.length === 0) {
-      return res.status(400).json({ error: 'No companies associated with this vendor' });
-    }
+    const companyIds = (companies || []).map((comp) => comp.companyId).filter(Boolean);
 
-    // Get the component details from any linked company
-    const { data: component, error: componentError } = await supabase
+    // Get the component details from linked companies if available, else from all companies
+    let componentQuery = supabase
       .from('Components')
       .select('*')
-      .eq('component_code', componentCode)
-      .in('companyId', companyIds)
-      .single();
+      .eq('component_code', componentCode);
+
+    if (companyIds.length > 0) {
+      componentQuery = componentQuery.in('companyId', companyIds);
+    }
+
+    const { data: component, error: componentError } = await componentQuery.single();
 
     if (componentError || !component) {
       return res.status(404).json({ error: 'Component not found' });
@@ -833,14 +814,9 @@ exports.approveVendorComponent = async (req, res) => {
       return res.status(400).json({ error: 'Component ID is required' });
     }
 
-    // Update component status to approved
     const { data: updatedComponent, error } = await supabase
       .from('vendor_components')
       .update({
-        status: 'approved',
-        rejection_reason: null,
-        reviewed_by: adminId,
-        reviewed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq('componentid', componentId)
@@ -878,14 +854,9 @@ exports.rejectVendorComponent = async (req, res) => {
       return res.status(400).json({ error: 'Rejection reason is required' });
     }
 
-    // Update component status to rejected with reason
     const { data: updatedComponent, error } = await supabase
       .from('vendor_components')
       .update({
-        status: 'rejected',
-        rejection_reason: rejectionReason.trim(),
-        reviewed_by: adminId,
-        reviewed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq('componentid', componentId)
@@ -919,10 +890,10 @@ exports.updateVendorComponent = async (req, res) => {
       return res.status(400).json({ error: 'Component ID is required' });
     }
 
-    // Get current component to check status
+    // Get current component and verify ownership
     const { data: currentComponent, error: fetchError } = await supabase
       .from('vendor_components')
-      .select('status, vendorid')
+      .select('*')
       .eq('componentid', componentId)
       .single();
 
@@ -933,7 +904,7 @@ exports.updateVendorComponent = async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized to update this component' });
     }
 
-    // If component was rejected, reset to pending when vendor updates
+    // If workflow columns exist and component was rejected, reset to pending on update
     const updates = {
       ...updateData,
       updated_at: new Date().toISOString(),
@@ -942,7 +913,6 @@ exports.updateVendorComponent = async (req, res) => {
     if (currentComponent.status === 'rejected') {
       updates.status = 'pending';
       updates.rejection_reason = null;
-      // submission_count will be auto-incremented by trigger
     }
 
     // Update component

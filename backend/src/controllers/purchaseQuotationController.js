@@ -86,10 +86,14 @@ exports.createPurchaseQuotation = async (req, res) => {
     if (itemsError) throw itemsError;
 
     // Update enquiry status
-    await supabase
+    const { error: enquiryStatusError } = await supabase
       .from('purchase_enquiry')
       .update({ status: 'quoted', updated_at: new Date().toISOString() })
       .eq('enquiry_id', enquiryId);
+
+    if (enquiryStatusError) {
+      throw enquiryStatusError;
+    }
 
     // Fetch complete quotation
     const { data: completeQuotation } = await supabase
@@ -132,15 +136,23 @@ exports.createVendorQuotation = async (req, res) => {
 
     const { data: enquiry, error: enquiryError } = await supabase
       .from('purchase_enquiry')
-      .select('*')
+      .select('enquiry_id, vendor_id, status, purchase_manager_id')
       .eq('enquiry_id', enquiryId)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
-    if (enquiryError || !enquiry) {
+    if (enquiryError) {
+      throw enquiryError;
+    }
+
+    if (!enquiry) {
       return res.status(404).json({ error: 'Enquiry not found' });
     }
 
-    if (String(enquiry.vendor_id) !== String(vendorId)) {
+    const enquiryVendorId = enquiry.vendor_id;
+    const vendorMatchesById = enquiryVendorId && String(enquiryVendorId) === String(vendorId);
+
+    if (!vendorMatchesById) {
       return res.status(403).json({ error: 'Unauthorized to quote this enquiry' });
     }
 
@@ -209,10 +221,14 @@ exports.createVendorQuotation = async (req, res) => {
 
     if (itemsError) throw itemsError;
 
-    await supabase
+    const { error: vendorEnquiryStatusError } = await supabase
       .from('purchase_enquiry')
       .update({ status: 'quoted', updated_at: new Date().toISOString() })
       .eq('enquiry_id', enquiryId);
+
+    if (vendorEnquiryStatusError) {
+      throw vendorEnquiryStatusError;
+    }
 
     const { data: completeQuotation } = await supabase
       .from('purchase_quotation')
