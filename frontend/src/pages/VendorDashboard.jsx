@@ -249,22 +249,6 @@ function VendorDashboard() {
     if (!currentUser) return;
     const token = idToken || (await getIdToken());
     const data = await listVendorComponents(token);
-<<<<<<< HEAD
-    const componentList = data.products || [];
-    const dedupedComponents = Array.from(
-      new Map(
-        componentList.map((component) => {
-          const dedupeKey =
-            component.componentid ||
-            component.component_id ||
-            component.component_code ||
-            `${component.component_name || ''}-${component.item_no || ''}-${component.vendorid || component.vendor_id || ''}`;
-          return [String(dedupeKey), component];
-        })
-      ).values()
-    );
-    setComponents(dedupedComponents);
-=======
     setComponents(data.products || []);
   };
 
@@ -275,7 +259,6 @@ function VendorDashboard() {
     const vendorId = currentUser?.uid || currentUser?.vendorId || currentUser?.id;
     const data = await listRequiredComponents(token, vendorId);
     setRequiredComponents(data.requiredComponents || []);
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
   };
 
   // ==================== Data Fetching - Purchase Workflow ====================

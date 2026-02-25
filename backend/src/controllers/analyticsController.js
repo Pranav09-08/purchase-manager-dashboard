@@ -12,24 +12,14 @@ const getCount = async (table, filters = []) => {
 };
 
 const getDistinctEnquiryCount = async (filters = []) => {
-  let query = supabase.from('purchase_enquiry_items').select('enquiry_id');
+  let query = supabase.from('purchase_enquiry').select('enquiry_id');
   filters.forEach((filter) => {
     query = query[filter.method](filter.column, filter.value);
   });
 
   let { data, error } = await query;
 
-  if (error) {
-    const hasMissingStatusColumn = (error.message || '').includes("Could not find the 'status' column");
-    if (hasMissingStatusColumn) {
-      const fallbackResult = await supabase.from('purchase_enquiry_items').select('enquiry_id');
-      data = fallbackResult.data;
-      error = fallbackResult.error;
-    }
-  }
-
   if (error) throw error;
-
   const unique = new Set((data || []).map((row) => row.enquiry_id).filter(Boolean));
   return unique.size;
 };

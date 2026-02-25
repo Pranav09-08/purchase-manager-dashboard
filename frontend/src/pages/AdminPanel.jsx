@@ -1,3 +1,31 @@
+// Handler for cancelling Enquiry edit
+const handleCancelEnquiryEdit = () => {
+  setEditingEnquiryId(null);
+  setEnquiryForm({
+    companyId: '',
+    vendorId: '',
+    title: '',
+    description: '',
+    requiredDeliveryDate: '',
+    source: 'emergency',
+    planningRequestId: '',
+  });
+  setEnquiryItems([]);
+};
+// Handler for editing Enquiry
+const handleEditEnquiry = (enquiry) => {
+  setEditingEnquiryId(enquiry.enquiry_id || enquiry.id || '');
+  setEnquiryForm({
+    companyId: enquiry.company_id || '',
+    vendorId: enquiry.vendor_id || '',
+    title: enquiry.title || '',
+    description: enquiry.description || '',
+    requiredDeliveryDate: enquiry.required_delivery_date || '',
+    source: enquiry.source || 'emergency',
+    planningRequestId: enquiry.planning_request_id || '',
+  });
+  setEnquiryItems(enquiry.items || []);
+};
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';

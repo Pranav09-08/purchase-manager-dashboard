@@ -195,15 +195,6 @@ exports.getVendorComponents = async (req, res) => {
     if (!vendorId) {
       return res.status(400).json({ error: 'Vendor ID is required' });
     }
-<<<<<<< HEAD
-
-    // Get vendor-owned active components only
-
-    const { data: components, error: componentsError } = await supabase
-      .from('vendor_components')
-      .select('*')
-      .eq('vendorid', vendorId)
-=======
     // Get company linked to this vendor
     const company = await getCompanyForVendor(vendorId);
     if (!company) {
@@ -219,7 +210,6 @@ exports.getVendorComponents = async (req, res) => {
       .from('vendor_components')
       .select('*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_person), Company:companyid(companyId, company_name)')
       .or(filter)
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
       .eq('is_active', true)
       .order('created_at', { ascending: false });
     if (componentsError) {
@@ -707,21 +697,6 @@ exports.addAvailableComponent = async (req, res) => {
 
     // 🔹 Get companies mapped to vendor
     const companies = await getAllCompaniesForVendor(vendorId);
-<<<<<<< HEAD
-    const companyIds = (companies || []).map((comp) => comp.companyId).filter(Boolean);
-
-    // Get the component details from linked companies if available, else from all companies
-    let componentQuery = supabase
-      .from('Components')
-      .select('*')
-      .eq('component_code', componentCode);
-
-    if (companyIds.length > 0) {
-      componentQuery = componentQuery.in('companyId', companyIds);
-    }
-
-    const { data: component, error: componentError } = await componentQuery.single();
-=======
     const companyIds = companies.map((c) => c.companyId).filter(Boolean);
 
     if (companyIds.length === 0) {
@@ -737,7 +712,6 @@ exports.addAvailableComponent = async (req, res) => {
       .eq("component_code", componentCode)
       .in("companyId", companyIds)
       .maybeSingle();
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
 
     if (componentError) throw componentError;
     if (!component) {
@@ -901,21 +875,12 @@ exports.updateVendorComponent = async (req, res) => {
       return res.status(400).json({ error: "Component ID is required" });
     }
 
-<<<<<<< HEAD
-    // Get current component and verify ownership
-    const { data: currentComponent, error: fetchError } = await supabase
-      .from('vendor_components')
-      .select('*')
-      .eq('componentid', componentId)
-      .single();
-=======
     // 1️⃣ Fetch component
     const { data: currentComponent, error: fetchError } = await supabase
       .from("vendor_components")
       .select("status, vendorid")
       .eq("componentid", componentId)
       .maybeSingle();
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
 
     if (fetchError) throw fetchError;
 
@@ -923,16 +888,12 @@ exports.updateVendorComponent = async (req, res) => {
       return res.status(404).json({ error: "Component not found" });
     }
 
-<<<<<<< HEAD
-    // If workflow columns exist and component was rejected, reset to pending on update
-=======
     // 2️⃣ Ownership check
     if (currentComponent.vendorid !== vendorId) {
       return res.status(403).json({ error: "Unauthorized to update this component" });
     }
 
     // 3️⃣ Build safe update object
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
     const updates = {
       ...payload,
       updated_at: new Date().toISOString(),
@@ -948,10 +909,7 @@ exports.updateVendorComponent = async (req, res) => {
     if (currentComponent.status === "rejected") {
       updates.status = "pending";
       updates.rejection_reason = null;
-<<<<<<< HEAD
-=======
       resubmitted = true;
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
     }
 
     // 5️⃣ Update with vendor scope (important)

@@ -89,22 +89,9 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
     }
     setRejectLoading(true);
     try {
-<<<<<<< HEAD
-      const response = await fetch(
-        apiUrl(`/api/purchase/enquiry/${selectedEnquiry.enquiry_id}/reject`),
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(getAuthHeaders ? await getAuthHeaders() : {}),
-          },
-          body: JSON.stringify({ rejectionReason: rejectionReason.trim() }),
-        }
-=======
       const { data } = await apiClient.put(
         `/api/purchase/enquiry/${selectedEnquiry.enquiry_id}/reject`,
         { rejectionReason: rejectionReason.trim() }
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
       );
       
       // Call parent callback if provided

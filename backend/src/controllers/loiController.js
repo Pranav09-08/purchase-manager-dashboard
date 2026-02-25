@@ -1,135 +1,244 @@
-// LOI management controller
 const supabase = require('../config/supabase');
-const { v4: uuidv4 } = require('uuid');
 
-// Create/Submit LOI (Letter of Intent)
+/* =========================================================
+   CREATE LOI
+   ========================================================= */
 exports.createLOI = async (req, res) => {
   try {
-    const { quotationId, companyId, loi_number, description, attachment_url, file_type } = req.body;
+    const {
+      quotationId,
+      counterQuotationId,
+      totalAmount,
+      advancePaymentPercent,
+      expectedDeliveryDate,
+      termsAndConditions,
+    } = req.body;
 
-    if (!quotationId || !loi_number) {
-      return res.status(400).json({ error: 'Quotation ID and LOI number are required' });
+    const purchaseManagerId = req.user?.vendor_id;
+
+    if (!quotationId || !totalAmount) {
+      return res.status(400).json({
+        error: 'Missing required fields: quotationId, totalAmount',
+      });
     }
 
-    const { data, error } = await supabase
-      .from('LOI')
-      .insert([
-        {
-          loiId: uuidv4(),
-          quotationId,
-          companyId: companyId || null,
-          loi_number,
-          description: description || null,
-          submitted_date: new Date().toISOString(),
-          status: 'received',
-          attachment_url: attachment_url || null,
-          file_type: file_type || null,
-          created_at: new Date().toISOString(),
-        },
-      ])
-      .select();
-
-    if (error) return res.status(400).json({ error: error.message });
-
-    res.status(201).json({ message: 'LOI submitted successfully', data: data[0] });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get Company LOIs
-exports.getCompanyLOIs = async (req, res) => {
-  try {
-    const { companyId } = req.params;
-
-    const { data, error } = await supabase
-      .from('LOI')
-      .select(`
-        *,
-        Company(company_name, contact_email)
-      `)
-      .eq('companyId', companyId)
-      .order('submitted_date', { ascending: false });
-
-    if (error) return res.status(400).json({ error: error.message });
-
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get All LOIs
-exports.getAllLOIs = async (req, res) => {
-  try {
-    const { status } = req.query;
-
-    let query = supabase
-      .from('LOI')
-      .select(`
-        *,
-        Company(company_name, contact_email)
-      `);
-
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    const { data, error } = await query.order('submitted_date', { ascending: false });
-
-    if (error) return res.status(400).json({ error: error.message });
-
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get Single LOI
-exports.getLOI = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { data, error } = await supabase
-      .from('LOI')
-      .select(`
-        *,
-        Company(company_name, contact_email)
-      `)
-      .eq('loiId', id)
+    /* ---------- Fetch quotation ---------- */
+    const { data: quotation, error: quotationError } = await supabase
+      .from('purchase_quotation')
+      .select('*')
+      .eq('quotation_id', quotationId)
       .single();
 
-    if (error) return res.status(404).json({ error: 'LOI not found' });
+    if (quotationError || !quotation) {
+      return res.status(404).json({ error: 'Quotation not found' });
+    }
 
-    res.json(data);
+    const vendorId = quotation.vendor_id;
+
+    /* ---------- Generate IDs ---------- */
+    const loiId = `pl_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+    const loiNumber = `LOI-${Date.now()}`;
+
+    /* ---------- Insert LOI ---------- */
+    const { data: loi, error } = await supabase
+      .from('purchase_loi')
+      .insert([
+        {
+          loi_id: loiId,
+          quotation_id: quotationId,
+          counter_quotation_id: counterQuotationId || null,
+          vendor_id: vendorId,
+          purchase_manager_id: purchaseManagerId,
+          loi_number: loiNumber,
+          loi_date: new Date().toISOString(),
+          total_amount: totalAmount,
+          advance_payment_percent: advancePaymentPercent || 0,
+          final_payment_percent: 100 - (advancePaymentPercent || 0),
+          expected_delivery_date: expectedDeliveryDate || null,
+          terms_and_conditions: termsAndConditions || null,
+          status: 'sent',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    /* ---------- Update quotation ---------- */
+    await supabase
+      .from('purchase_quotation')
+      .update({ status: 'approved', updated_at: new Date().toISOString() })
+      .eq('quotation_id', quotationId);
+
+    res.status(201).json({
+      message: 'Purchase LOI created successfully',
+      loi,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('CREATE LOI ERROR:', error);
+    res.status(500).json({ error: error.message || 'Failed to create LOI' });
   }
 };
 
-// Update LOI Status
-exports.updateLOIStatus = async (req, res) => {
+/* =========================================================
+   GET LOI BY ID
+   ========================================================= */
+exports.getLOI = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status } = req.body;
+    const { loiId } = req.params;
 
-    if (!status) {
-      return res.status(400).json({ error: 'Status is required' });
+    const { data: loi, error } = await supabase
+      .from('purchase_loi')
+      .select('*')
+      .eq('loi_id', loiId)
+      .single();
+
+    if (error || !loi) {
+      return res.status(404).json({ error: 'LOI not found' });
     }
 
-    const { data, error } = await supabase
-      .from('LOI')
+    res.json({ loi });
+  } catch (error) {
+    console.error('GET LOI ERROR:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch LOI' });
+  }
+};
+
+/* =========================================================
+   GET ALL LOIs
+   ========================================================= */
+exports.getAllLOIs = async (req, res) => {
+  try {
+    const { vendorId, status, quotationId } = req.query;
+
+    let query = supabase.from('purchase_loi').select('*');
+
+    if (vendorId) query = query.eq('vendor_id', vendorId);
+    if (status) query = query.eq('status', status);
+    if (quotationId) query = query.eq('quotation_id', quotationId);
+
+    const { data: lois, error } = await query.order('created_at', {
+      ascending: false,
+    });
+
+    if (error) throw error;
+
+    res.json({
+      lois: lois || [],
+      total: lois?.length || 0,
+    });
+  } catch (error) {
+    console.error('GET LOIs ERROR:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch LOIs' });
+  }
+};
+
+/* =========================================================
+   ACCEPT LOI
+   ========================================================= */
+exports.acceptLOI = async (req, res) => {
+  try {
+    const { loiId } = req.params;
+    const vendorId = req.user?.vendor_id;
+
+    if (!vendorId) {
+      return res.status(401).json({ error: 'Vendor authentication required' });
+    }
+
+    const { data: loi, error: fetchError } = await supabase
+      .from('purchase_loi')
+      .select('*')
+      .eq('loi_id', loiId)
+      .single();
+
+    if (fetchError || !loi) {
+      return res.status(404).json({ error: 'LOI not found' });
+    }
+
+    if (String(loi.vendor_id) !== String(vendorId)) {
+      return res.status(403).json({ error: 'Unauthorized to accept this LOI' });
+    }
+
+    if (loi.status !== 'sent') {
+      return res.status(400).json({ error: 'LOI already processed' });
+    }
+
+    const { data: updated, error } = await supabase
+      .from('purchase_loi')
       .update({
-        status,
+        status: 'accepted',
+        vendor_response_date: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('loiId', id)
-      .select();
+      .eq('loi_id', loiId)
+      .select()
+      .single();
 
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) throw error;
 
-    res.json({ message: 'LOI status updated', data: data[0] });
+    res.json({
+      message: 'LOI accepted successfully',
+      loi: updated,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('ACCEPT LOI ERROR:', error);
+    res.status(500).json({ error: error.message || 'Failed to accept LOI' });
+  }
+};
+
+/* =========================================================
+   REJECT LOI
+   ========================================================= */
+exports.rejectLOI = async (req, res) => {
+  try {
+    const { loiId } = req.params;
+    const vendorId = req.user?.vendor_id;
+
+    if (!vendorId) {
+      return res.status(401).json({ error: 'Vendor authentication required' });
+    }
+
+    const { data: loi, error: fetchError } = await supabase
+      .from('purchase_loi')
+      .select('*')
+      .eq('loi_id', loiId)
+      .single();
+
+    if (fetchError || !loi) {
+      return res.status(404).json({ error: 'LOI not found' });
+    }
+
+    if (String(loi.vendor_id) !== String(vendorId)) {
+      return res.status(403).json({ error: 'Unauthorized to reject this LOI' });
+    }
+
+    if (loi.status !== 'sent') {
+      return res.status(400).json({ error: 'LOI already processed' });
+    }
+
+    const { data: updated, error } = await supabase
+      .from('purchase_loi')
+      .update({
+        status: 'rejected',
+        vendor_response_date: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('loi_id', loiId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      message: 'LOI rejected successfully',
+      loi: updated,
+    });
+  } catch (error) {
+    console.error('REJECT LOI ERROR:', error);
+    res.status(500).json({ error: error.message || 'Failed to reject LOI' });
   }
 };

@@ -29,11 +29,7 @@
 // Vendor components list and required components
 import { useState } from 'react';
 import AvailableComponentsModal from './AvailableComponentsModal';
-<<<<<<< HEAD
-import { apiUrl, getAuthHeader } from '../../utils/api';
-=======
 import apiClient from '../../api/apiClient';
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
 
 function ComponentsTab({
   components,
@@ -66,26 +62,8 @@ function ComponentsTab({
   const handleUpdateComponent = async (component) => {
     setLoading(true);
     try {
-<<<<<<< HEAD
-      const response = await fetch(apiUrl(`/api/vendor/components/${component.componentid}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeader()),
-        },
-        body: JSON.stringify(component)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to update component');
-      }
-
-=======
       const { data } = await apiClient.put(`/api/vendor/components/${component.componentid}`, component);
       
->>>>>>> 667152deca3604caa1481c8d1290f3bff79d59f2
       if (data.resubmitted) {
         alert('Component resubmitted successfully! It\'s now pending PM review.');
       } else {
