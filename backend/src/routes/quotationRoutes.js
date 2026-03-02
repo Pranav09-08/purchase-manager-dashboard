@@ -2,19 +2,20 @@
 const express = require('express');
 const router = express.Router();
 const quotationController = require('../controllers/quotationController');
+const { authenticateToken } = require('../controllers/authController');
 
-// Quotation Routes
+// Quotation Routes (authenticated)
 // Create purchase quotation
-router.post('/purchase-quotation', quotationController.createPurchaseQuotation);
+router.post('/purchase-quotation', authenticateToken, quotationController.createPurchaseQuotation);
 // Vendor creates quotation
-router.post('/vendor-quotation', quotationController.createVendorQuotation);
+router.post('/vendor-quotation', authenticateToken, quotationController.createVendorQuotation);
 // Get purchase quotation by ID
-router.get('/purchase-quotation/:quotationId', quotationController.getPurchaseQuotation);
+router.get('/purchase-quotation/:quotationId', authenticateToken, quotationController.getPurchaseQuotation);
 // Get all purchase quotations
-router.get('/purchase-quotations', quotationController.getPurchaseQuotations);
+router.get('/purchase-quotations', authenticateToken, quotationController.getPurchaseQuotations);
 // Update purchase quotation status
-router.patch('/purchase-quotation/:quotationId', quotationController.updatePurchaseQuotation);
+router.patch('/purchase-quotation/:quotationId', authenticateToken, quotationController.updatePurchaseQuotation);
 // Vendor counter quotation
-router.post('/counter-quotation', quotationController.createCounterQuotation);
+router.post('/counter-quotation', authenticateToken, quotationController.createCounterQuotation);
 
 module.exports = router;

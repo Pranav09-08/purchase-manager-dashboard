@@ -7,7 +7,7 @@ exports.getAllVendorComponents = async (req, res) => {
     }
     const { data: components, error } = await supabase
       .from('vendor_components')
-      .select('*')
+      .select('*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_person, contact_email, contact_phone), Company:companyid(companyId, company_name)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     res.json({ components: components || [] });
@@ -789,9 +789,9 @@ exports.addAvailableComponent = async (req, res) => {
 exports.approveVendorComponent = async (req, res) => {
   try {
     const { componentId } = req.params;
-    const adminId = req.user?.admin_id;
+    const isAdmin = req.user?.type === 'admin';
 
-    if (!adminId) {
+    if (!isAdmin) {
       return res.status(401).json({ error: 'Admin authentication required' });
     }
 
@@ -802,6 +802,8 @@ exports.approveVendorComponent = async (req, res) => {
     const { data: updatedComponent, error } = await supabase
       .from('vendor_components')
       .update({
+        status: 'approved',
+        rejection_reason: null,
         updated_at: new Date().toISOString(),
       })
       .eq('componentid', componentId)
@@ -825,9 +827,9 @@ exports.rejectVendorComponent = async (req, res) => {
   try {
     const { componentId } = req.params;
     const { rejectionReason } = req.body;
-    const adminId = req.user?.admin_id;
+    const isAdmin = req.user?.type === 'admin';
 
-    if (!adminId) {
+    if (!isAdmin) {
       return res.status(401).json({ error: 'Admin authentication required' });
     }
 
@@ -842,6 +844,8 @@ exports.rejectVendorComponent = async (req, res) => {
     const { data: updatedComponent, error } = await supabase
       .from('vendor_components')
       .update({
+        status: 'rejected',
+        rejection_reason: rejectionReason.trim(),
         updated_at: new Date().toISOString(),
       })
       .eq('componentid', componentId)

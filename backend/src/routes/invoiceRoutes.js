@@ -1,29 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const invoiceController = require('../controllers/invoiceController');
+const { authenticateToken } = require('../controllers/authController');
 
 // Create invoice
-router.post('/', invoiceController.createInvoice);
+router.post('/invoices', authenticateToken, invoiceController.createInvoice);
 
 // Get invoice by ID
-router.get('/:invoiceId', invoiceController.getInvoice);
+router.get('/invoices/:invoiceId', authenticateToken, invoiceController.getInvoice);
 
 // Get all invoices
-router.get('/', invoiceController.getInvoices);
+router.get('/invoices', authenticateToken, invoiceController.getInvoices);
 
 // Mark invoice as received
-router.patch('/:invoiceId/received', invoiceController.markInvoiceReceived);
+router.patch('/invoices/:invoiceId/received', authenticateToken, invoiceController.markInvoiceReceived);
 
 // Accept invoice
-router.patch('/:invoiceId/accept', invoiceController.acceptInvoice);
+router.patch('/invoices/:invoiceId/accept', authenticateToken, invoiceController.acceptInvoice);
 
 // Reject invoice
-router.patch('/:invoiceId/reject', invoiceController.rejectInvoice);
+router.patch('/invoices/:invoiceId/reject', authenticateToken, invoiceController.rejectInvoice);
 
 // Mark invoice as paid
-router.patch('/:invoiceId/paid', invoiceController.markInvoicePaid);
+router.patch('/invoices/:invoiceId/paid', authenticateToken, invoiceController.markInvoicePaid);
 
 // Get invoice summary
-router.get('/:invoiceId/summary', invoiceController.getInvoiceSummary);
+router.get('/invoices/:invoiceId/summary', authenticateToken, invoiceController.getInvoiceSummary);
 
 module.exports = router;
