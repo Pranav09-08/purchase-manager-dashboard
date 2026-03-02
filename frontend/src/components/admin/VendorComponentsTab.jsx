@@ -1,13 +1,27 @@
 import { useState } from 'react';
-import { approveVendorComponent, rejectVendorComponent } from '../../api/vendor/components.api';
+import { approveVendorComponent, rejectVendorComponent } from '../../api/admin/components.api';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Vendor submitted components list with approval workflow
-function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
+function VendorComponentsTab({ vendorComponents = [], onRefresh, getAuthHeaders })  {
+  const { idToken, getIdToken } = useAuth();
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const getComponentId = (component) => component.componentid || component.componentId;
+  const getVendorName = (component) => component.vendorregistration?.contact_person || component.vendorregistration?.company_name || '—';
+  const getCompanyName = (component) => component.vendorregistration?.company_name || component.Company?.company_name || '—';
+  const getContactEmail = (component) => component.vendorregistration?.contact_email || '—';
+  const getContactPhone = (component) => component.vendorregistration?.contact_phone || '—';
+  const getStock = (component) => component.current_stock ?? component.stock_available ?? 0;
+  const formatDateTime = (value) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString();
+  };
 
   const getStatusColor = (status) => {
     if (status === 'pending') return 'bg-amber-100 text-amber-700';
@@ -27,7 +41,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
     if (!confirm('Approve this component for purchase?')) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = idToken || await getIdToken(true);
       await approveVendorComponent(token, componentId);
       alert('Component approved successfully!');
       if (onRefresh) onRefresh();
@@ -46,7 +60,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
     }
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = idToken || await getIdToken(true);
       await rejectVendorComponent(token, showRejectModal, rejectionReason.trim());
       alert('Component rejected. Vendor will be notified.');
       setShowRejectModal(null);
@@ -60,14 +74,14 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
     }
   };
 
-  const filteredComponents = vendorProducts.filter((component) => {
+  const filteredComponents = vendorComponents.filter((component) => {
     if (statusFilter === 'all') return true;
     return component.status === statusFilter;
   });
 
-  const pendingCount = vendorProducts.filter(c => c.status === 'pending').length;
-  const approvedCount = vendorProducts.filter(c => c.status === 'approved').length;
-  const rejectedCount = vendorProducts.filter(c => c.status === 'rejected').length;
+  const pendingCount = vendorComponents.filter(c => c.status === 'pending').length;
+  const approvedCount = vendorComponents.filter(c => c.status === 'approved').length;
+  const rejectedCount = vendorComponents.filter(c => c.status === 'rejected').length;
 
   return (
     <div className="space-y-6">
@@ -81,7 +95,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
-          All ({vendorProducts.length})
+          All ({vendorComponents.length})
         </button>
         <button
           onClick={() => setStatusFilter('pending')}
@@ -130,7 +144,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filteredComponents.map((component) => (
-            <div key={component.componentid} className="data-card relative">
+            <div key={getComponentId(component)} className="data-card relative">
               {/* Status Badge */}
               <div className="absolute top-4 right-4">
                 <span className={`data-pill ${getStatusColor(component.status)}`}>
@@ -142,13 +156,13 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                 <div>
                   <h4 className="data-title">{component.component_name}</h4>
                   <p className="data-subtitle">
-                    {component.vendorregistration?.contact_person || component.vendorregistration?.company_name || '—'}
+                    {getVendorName(component)}
                   </p>
                 </div>
               </div>
 
               <p className="text-sm text-slate-600 mt-3">
-                Company: {component.Company?.company_name || '—'}
+                Company: {getCompanyName(component)}
               </p>
 
               {/* Rejection Reason */}
@@ -169,7 +183,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
               <div className="data-grid">
                 <div className="data-kv">
                   <span className="data-label">Stock</span>
-                  <span className="data-value">{component.current_stock ?? component.stock_available ?? 0}</span>
+                  <span className="data-value">{getStock(component)}</span>
                 </div>
                 <div className="data-kv">
                   <span className="data-label">Unit</span>
@@ -196,7 +210,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
               {component.status === 'pending' && (
                 <div className="mt-4 flex gap-2">
                  <button
-                    onClick={() => handleApprove(component.componentid)}
+                    onClick={() => handleApprove(getComponentId(component))}
                     disabled={loading}
                     className="flex-1 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition disabled:opacity-50"
                   >
@@ -204,7 +218,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                   </button>
                   <button
                     onClick={() => {
-                      setShowRejectModal(component.componentid);
+                      setShowRejectModal(getComponentId(component));
                       setRejectionReason('');
                     }}
                     disabled={loading}
@@ -274,7 +288,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
             <div className="sticky top-0 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-3">
               <div className="flex-1">
                 <h3 className="text-3xl font-bold text-slate-900">{selectedComponent.component_name}</h3>
-                <p className="text-base text-slate-500 mt-1">ID: {selectedComponent.componentid}</p>
+                <p className="text-base text-slate-500 mt-1">Submitted by {getVendorName(selectedComponent)}</p>
               </div>
               <button
                 onClick={() => setSelectedComponent(null)}
@@ -312,17 +326,21 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                 <h4 className="text-lg font-semibold text-slate-900 mb-2">Vendor Information</h4>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-600">Vendor ID</p>
-                    <p className="text-base text-slate-900 font-medium">{selectedComponent.vendorid || '—'}</p>
+                    <p className="text-sm font-semibold text-slate-600">Vendor Name</p>
+                    <p className="text-base text-slate-900 font-medium">{getVendorName(selectedComponent)}</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Vendor Company</p>
-                    <p className="text-base text-slate-900 font-medium">{selectedComponent.vendorregistration?.company_name || '—'}</p>
+                    <p className="text-base text-slate-900 font-medium">{getCompanyName(selectedComponent)}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-600">Company ID</p>
-                    <p className="text-base text-slate-900 font-medium">{selectedComponent.companyid || '—'}</p>
+                    <p className="text-sm font-semibold text-slate-600">Contact Email</p>
+                    <p className="text-base text-slate-900 font-medium">{getContactEmail(selectedComponent)}</p>
                   </div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-sm font-semibold text-slate-600">Contact Phone</p>
+                  <p className="text-base text-slate-900 font-medium">{getContactPhone(selectedComponent)}</p>
                 </div>
               </div>
 
@@ -340,7 +358,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Unit of Measurement</p>
-                    <p className="text-base text-slate-900 font-medium">{selectedComponent.unit_of_measurement || '—'}</p>
+                    <p className="text-base text-slate-900 font-medium">{selectedComponent.unit_of_measurement || selectedComponent.measurement_unit || selectedComponent.unit || '—'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Size</p>
@@ -363,19 +381,19 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                 <div className="grid grid-cols-4 gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Price per Unit</p>
-                    <p className="text-base font-bold text-emerald-700">₹{(selectedComponent.price_per_unit || 0).toFixed(2)}</p>
+                    <p className="text-base font-bold text-emerald-700">₹{Number(selectedComponent.price_per_unit || 0).toFixed(2)}</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Discount %</p>
-                    <p className="text-base font-medium text-slate-900">{(selectedComponent.discount_percent || 0).toFixed(2)}%</p>
+                    <p className="text-base font-medium text-slate-900">{Number(selectedComponent.discount_percent || 0).toFixed(2)}%</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-600">CGST %</p>
-                    <p className="text-base font-medium text-slate-900">{(selectedComponent.cgst || 0).toFixed(2)}%</p>
+                    <p className="text-base font-medium text-slate-900">{Number(selectedComponent.cgst || 0).toFixed(2)}%</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-600">SGST %</p>
-                    <p className="text-base font-medium text-slate-900">{(selectedComponent.sgst || 0).toFixed(2)}%</p>
+                    <p className="text-base font-medium text-slate-900">{Number(selectedComponent.sgst || 0).toFixed(2)}%</p>
                   </div>
                 </div>
               </div>
@@ -386,7 +404,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                 <div className="grid grid-cols-4 gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Stock Available</p>
-                    <p className="text-base font-bold text-amber-700">{selectedComponent.stock_available ?? 0} units</p>
+                    <p className="text-base font-bold text-amber-700">{getStock(selectedComponent)} units</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Min Order Qty</p>
@@ -435,11 +453,11 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Created At</p>
-                    <p className="text-base text-slate-700">{new Date(selectedComponent.created_at).toLocaleString()}</p>
+                    <p className="text-base text-slate-700">{formatDateTime(selectedComponent.created_at)}</p>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-600">Updated At</p>
-                    <p className="text-base text-slate-700">{new Date(selectedComponent.updated_at).toLocaleString()}</p>
+                    <p className="text-base text-slate-700">{formatDateTime(selectedComponent.updated_at)}</p>
                   </div>
                 </div>
               </div>
@@ -449,7 +467,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                 <div className="flex gap-3 pt-3 border-t">
                   <button
                     onClick={() => {
-                      handleApprove(selectedComponent.componentid);
+                      handleApprove(getComponentId(selectedComponent));
                       setSelectedComponent(null);
                     }}
                     disabled={loading}
@@ -459,7 +477,7 @@ function VendorComponentsTab({ vendorProducts, onRefresh, getAuthHeaders })  {
                   </button>
                   <button
                     onClick={() => {
-                      setShowRejectModal(selectedComponent.componentid);
+                      setShowRejectModal(getComponentId(selectedComponent));
                       setSelectedComponent(null);
                     }}
                     disabled={loading}

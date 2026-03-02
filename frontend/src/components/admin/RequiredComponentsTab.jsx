@@ -1,66 +1,9 @@
-// CRUD for globally required components
+// Display for globally required components (read-only for now)
 function RequiredComponentsTab({
-  requestForm,
-  editingRequiredId,
-  requiredRequests,
-  onInputChange,
-  onSubmit,
-  onCancelEdit,
-  onEdit,
-  onDelete,
+  requiredRequests = [],
 }) {
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-1">
-          <h3 className="text-lg font-extrabold text-slate-900">
-            {editingRequiredId ? 'Edit Component' : 'Add Component'}
-          </h3>
-          {editingRequiredId && (
-            <button
-              type="button"
-              onClick={onCancelEdit}
-              className="px-3 py-1.5 text-xs font-semibold rounded-full border border-slate-300 text-slate-600 hover:bg-slate-100"
-            >
-              Cancel Edit
-            </button>
-          )}
-        </div>
-        <p className="text-sm text-slate-600 mb-6">These components will be visible to all vendors.</p>
-        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Component Name</label>
-            <input
-              type="text"
-              name="name"
-              value={requestForm.name}
-              onChange={onInputChange}
-              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-slate-900"
-              placeholder="e.g., ABS Sheet"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Notes (optional)</label>
-            <input
-              type="text"
-              name="description"
-              value={requestForm.description}
-              onChange={onInputChange}
-              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-slate-900"
-              placeholder="Specs, grade, or usage details"
-            />
-          </div>
-          <div className="md:col-span-2 flex justify-end">
-            <button
-              type="submit"
-              className="px-5 py-2.5 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition-colors"
-            >
-              {editingRequiredId ? 'Update Component' : 'Add Component'}
-            </button>
-          </div>
-        </form>
-      </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
@@ -94,23 +37,6 @@ function RequiredComponentsTab({
                 <p className="text-sm text-slate-600 mt-4 min-h-[40px]">
                   {req.description || 'No notes provided.'}
                 </p>
-
-                <div className="mt-5 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(req)}
-                    className="flex-1 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-100 transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(req.id)}
-                    className="flex-1 px-4 py-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-sm font-semibold hover:bg-rose-100 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
               </div>
             ))}
           </div>

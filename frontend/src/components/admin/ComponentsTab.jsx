@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
-import apiClient from '../../api/apiClient';
+import { useAuth } from '../../contexts/AuthContext';
+import { listComponentVendors } from '../../api/admin/components.api';
 
 // Product-specific components view
 function ComponentsTab({
-  products,
-  selectedProduct,
-  components,
+  products = [],
+  selectedProduct = null,
+  components = [],
   vendorCounts = {},
   autoSelectFirstComponent = false,
   onAutoSelectConsumed,
   onSelectProduct,
   onActivateComponent,
 }) {
+  const { idToken, getIdToken } = useAuth();
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [vendorsLoading, setVendorsLoading] = useState(false);
@@ -23,6 +25,7 @@ function ComponentsTab({
   const getComponentId = (component) => component.componentId || component.componentid;
   const getComponentName = (component) => component.component_name || component.name || 'Component';
   const getComponentCode = (component) => component.component_code || component.componentCode || '';
+  const getComponentVendorKey = (component) => getComponentCode(component) || getComponentNameKey(component);
   const getComponentNameKey = (component) => component.component_name || component.name || '';
   const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
@@ -50,16 +53,12 @@ function ComponentsTab({
     try {
       setVendorsLoading(true);
       setVendorsError('');
-      let data;
-      if (componentCode) {
-        ({ data } = await apiClient.get(`/api/components/${componentCode}/vendors`));
-      } else {
-        ({ data } = await apiClient.get(`/api/components/unknown/vendors?componentName=${encodeURIComponent(componentName)}`));
-      }
+      const token = idToken || await getIdToken(true);
+      const data = await listComponentVendors(token, { componentCode, componentName });
       setVendors(data.vendors || []);
     } catch (err) {
       setVendors([]);
-      setVendorsError(err.message || 'Failed to fetch vendors');
+      setVendorsError(err?.response?.data?.error || err.message || 'Failed to fetch vendors');
     } finally {
       setVendorsLoading(false);
     }
@@ -136,20 +135,22 @@ function ComponentsTab({
                     <div className="data-kv">
                       <span className="data-label">Vendors</span>
                       <span className="data-value">
-                        {vendorCounts[getComponentCode(component)] || 0}
+                        {vendorCounts[getComponentVendorKey(component)] || 0}
                       </span>
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
-                    {!component.active && (
-                      <button
-                        type="button"
-                        onClick={() => onActivateComponent?.(component)}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                      >
-                        Activate
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => onActivateComponent?.(component)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${
+                        component.active
+                          ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                          : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                      }`}
+                    >
+                      {component.active ? 'Deactivate' : 'Activate'}
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleViewVendors(component)}
@@ -172,7 +173,7 @@ function ComponentsTab({
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase">Vendor List</p>
                 <h3 className="text-xl font-bold text-slate-900 mt-1">{getComponentName(selectedComponent)}</h3>
-                <p className="text-sm text-slate-600 mt-1">Suppliers offering this component</p>
+                <p className="text-sm text-slate-600 mt-1">Vendors offering this component</p>
               </div>
               <button
                 onClick={() => setShowVendorsModal(false)}

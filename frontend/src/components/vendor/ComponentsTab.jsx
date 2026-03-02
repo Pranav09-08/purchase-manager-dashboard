@@ -73,7 +73,6 @@ function ComponentsTab({
       closeDetails();
       if (onComponentAdded) onComponentAdded();
     } catch (error) {
-      console.error('Error updating component:', error);
       alert('Failed to update component. Please try again.');
     } finally {
       setLoading(false);

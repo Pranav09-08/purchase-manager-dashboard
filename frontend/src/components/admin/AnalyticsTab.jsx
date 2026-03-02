@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 // Purchase manager analytics dashboard
-function AnalyticsTab({ data }) {
+function AnalyticsTab({ data = null }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [filters, setFilters] = useState({
     range: 'year',

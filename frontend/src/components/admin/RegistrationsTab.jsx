@@ -1,12 +1,12 @@
-// Supplier registration review table
+// Vendor registration review table
 function RegistrationsTab({
-  filter,
-  loading,
-  registrations,
-  onFilterChange,
-  onView,
-  onApprove,
-  onReject,
+  filter = '',
+  loading = false,
+  registrations = [],
+  onFilterChange = () => {},
+  onView = () => {},
+  onApprove = () => {},
+  onReject = () => {},
 }) {
   return (
     <div className="space-y-4">
@@ -54,7 +54,7 @@ function RegistrationsTab({
             </thead>
             <tbody>
               {registrations.map((registration) => (
-                <tr key={registration.vendor_id || registration.supplier_id} className="border-t border-slate-100 hover:bg-slate-50">
+                <tr key={registration.vendor_id || registration.vendor_id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4 text-sm text-slate-900">{registration.company_name}</td>
                   <td className="py-3 px-4 text-sm text-slate-600">{registration.contact_person || 'N/A'}</td>
                   <td className="py-3 px-4 text-sm text-slate-600">{registration.contact_email}</td>
@@ -84,7 +84,7 @@ function RegistrationsTab({
                         <>
                           <button
                             className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700"
-                            onClick={() => onApprove(registration.vendor_id || registration.supplier_id)}
+                            onClick={() => onApprove(registration.vendor_id || registration.vendor_id)}
                           >
                             Approve
                           </button>

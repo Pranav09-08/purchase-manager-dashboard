@@ -1,7 +1,24 @@
 import { useEffect, useState } from 'react';
 
 // Vendor invoices list and create form
-function InvoicesTab({ invoices, lois, orders, payments = [], formData, items, componentLookup = {}, onInputChange, onAddItem, onRemoveItem, onItemChange, onSubmit, onGoToPayments, focusOrderId, prefillOrderId, onClearFocus }) {
+function InvoicesTab({ 
+  invoices = [], 
+  lois = [], 
+  orders = [], 
+  payments = [], 
+  formData = {}, 
+  items = [], 
+  componentLookup = {}, 
+  onInputChange = () => {}, 
+  onAddItem = () => {}, 
+  onRemoveItem = () => {}, 
+  onItemChange = () => {}, 
+  onSubmit = () => {}, 
+  onGoToPayments = () => {}, 
+  focusOrderId, 
+  prefillOrderId, 
+  onClearFocus 
+}) {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [selectedInvoiceForPayments, setSelectedInvoiceForPayments] = useState(null);
   const [activeTab, setActiveTab] = useState('all');

@@ -59,7 +59,7 @@ function RegistrationDetailsModal({ selectedRegistration, onClose, onApprove, on
           {selectedRegistration.certificate_url && onApproveCertificate && (
             <button
               className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700"
-              onClick={() => onApproveCertificate(selectedRegistration.vendor_id || selectedRegistration.supplier_id)}
+              onClick={() => onApproveCertificate(selectedRegistration.vendor_id || selectedRegistration.vendor_id)}
               disabled={selectedRegistration.certificate_status === 'approved'}
             >
               Approve Certificate
@@ -68,7 +68,7 @@ function RegistrationDetailsModal({ selectedRegistration, onClose, onApprove, on
           {selectedRegistration.certificate_url && onRejectCertificate && (
             <button
               className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-700"
-              onClick={() => onRejectCertificate(selectedRegistration.vendor_id || selectedRegistration.supplier_id)}
+              onClick={() => onRejectCertificate(selectedRegistration.vendor_id || selectedRegistration.vendor_id)}
               disabled={selectedRegistration.certificate_status === 'rejected'}
             >
               Reject Certificate
@@ -78,7 +78,7 @@ function RegistrationDetailsModal({ selectedRegistration, onClose, onApprove, on
             <>
               <button
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700"
-                onClick={() => onApprove(selectedRegistration.vendor_id || selectedRegistration.supplier_id)}
+                onClick={() => onApprove(selectedRegistration.vendor_id || selectedRegistration.vendor_id)}
               >
                 Approve
               </button>

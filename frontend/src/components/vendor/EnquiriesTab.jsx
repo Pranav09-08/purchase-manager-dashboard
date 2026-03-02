@@ -2,7 +2,7 @@ import { useState } from 'react';
 import apiClient from '../../api/apiClient';
 
 // Vendor enquiries list
-function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, getAuthHeaders, onRejectEnquiry, onEnquiryCreated, supplier }) {
+function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation, getAuthHeaders, onRejectEnquiry, onEnquiryCreated, vendor }) {
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
   const [enquirySearch, setEnquirySearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -90,7 +90,7 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
     setRejectLoading(true);
     try {
       const { data } = await apiClient.put(
-        `/api/purchase/enquiry/${selectedEnquiry.enquiry_id}/reject`,
+        `/purchase-enquiry/${selectedEnquiry.enquiry_id}/reject`,
         { rejectionReason: rejectionReason.trim() }
       );
       
@@ -104,7 +104,7 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
       setSelectedEnquiry(null);
       alert('Enquiry rejected successfully');
     } catch (err) {
-      alert(err.message || 'Error rejecting enquiry');
+      alert(err.response?.data?.error || err.message || 'Error rejecting enquiry');
     } finally {
       setRejectLoading(false);
     }
@@ -135,8 +135,8 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
       const fallbackUnit = selectedComponent?.unit_of_measurement || selectedComponent?.measurement_unit || selectedComponent?.unit || null;
 
       const payload = {
-        companyId: supplier?.vendor_id || supplier?.companyId || null,
-        vendorId: supplier?.vendor_id || null,
+        companyId: vendor?.vendor_id || vendor?.companyId || null,
+        vendorId: vendor?.vendor_id || null,
         title: createForm.title.trim() || `${componentName} Enquiry`,
         description: createForm.description?.trim() || createForm.specifications?.trim() || null,
         notes: createForm.notes?.trim() || null,
@@ -152,17 +152,7 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
         ],
       };
 
-      const response = await fetch(apiUrl('/api/purchase/enquiry'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(getAuthHeaders ? await getAuthHeaders() : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to create enquiry');
+      const { data } = await apiClient.post('/purchase-enquiry', payload);
 
       setShowCreateModal(false);
       setCreateForm({
@@ -181,7 +171,7 @@ function EnquiriesTab({ enquiries, componentCatalog = [], onCreateQuotation, get
       }
       alert('Enquiry created successfully');
     } catch (err) {
-      alert(err.message || 'Failed to create enquiry');
+      alert(err.response?.data?.error || err.message || 'Failed to create enquiry');
     } finally {
       setCreateLoading(false);
     }

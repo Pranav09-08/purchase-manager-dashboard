@@ -1,7 +1,17 @@
 import { useState } from 'react';
 
 // Vendor LOIs list with accept/reject actions
-function LoisTab({ lois, orders = [], invoices = [], onAccept, onReject, onGoToOrders, onGoToInvoices, focusQuotationId, onClearFocus }) {
+function LoisTab({ 
+  lois = [], 
+  orders = [], 
+  invoices = [], 
+  onAccept = () => {}, 
+  onReject = () => {}, 
+  onGoToOrders = () => {}, 
+  onGoToInvoices = () => {}, 
+  focusQuotationId, 
+  onClearFocus = () => {} 
+}) {
   const [selectedLoi, setSelectedLoi] = useState(null);
   const [loiSearch, setLoiSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');

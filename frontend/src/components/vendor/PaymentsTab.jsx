@@ -1,7 +1,15 @@
 import { useState } from 'react';
 
 // Vendor payment status list
-function PaymentsTab({ payments, orders = [], invoices = [], onConfirmReceived, onGoToInvoices, focusOrderId, onClearFocus }) {
+function PaymentsTab({ 
+  payments = [], 
+  orders = [], 
+  invoices = [], 
+  onConfirmReceived = () => {}, 
+  onGoToInvoices = () => {}, 
+  focusOrderId, 
+  onClearFocus 
+}) {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [paymentSearch, setPaymentSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');

@@ -1,65 +1,72 @@
-// Vendor authentication page
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import apiClient from '../api/apiClient';
 
-function VendorLogin() {
+import { useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import adminAuthApi from '../api/auth.api';
+import { useAuth } from '../contexts/AuthContext';
+
+
+function Login() {
   const navigate = useNavigate();
-  const { loginWithCustomToken, currentUser, loading: authLoading } = useAuth();
+  const { loginWithCustomToken, currentUser, loading: authLoading, userRole } = useAuth();
   const [formData, setFormData] = useState({
-    contact_email: '',
+    email: '',
     password: '',
   });
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Auto-redirect if already logged in
-  useEffect(() => {
-    if (!authLoading && currentUser) {
-      navigate('/vendor/dashboard');
-    }
-  }, [currentUser, authLoading, navigate]);
+  if (!authLoading && currentUser && userRole === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
-  // Controlled form inputs
+  if (!authLoading && currentUser && userRole === 'vendor') {
+    return <Navigate to="/vendor/dashboard" replace />;
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Authenticate vendor with Firebase (using custom token flow)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      // Step 1: Verify credentials with backend (gets custom token)
-      const { data } = await apiClient.post('/api/auth/login', {
-        contact_email: formData.contact_email,
+      // Unified login endpoint decides user type
+      const payload = {
+        email: formData.email,
         password: formData.password,
-      });
-      console.log('✅ Login response received:', { message: data.message, hasCustomToken: !!data.customToken });
-
-      // Step 2: Sign in to Firebase with custom token
-      await loginWithCustomToken(data.customToken);
-
-      console.log('✅ Firebase authentication successful');
-
-      // Step 3: Store vendor info (optional, Firebase manages session)
-      if (data.vendor) {
-        localStorage.setItem('supplier', JSON.stringify(data.vendor));
+      };
+      
+      const { data } = await adminAuthApi.login(payload);
+      
+      if (!data.customToken) {
+        throw new Error('No custom token received from server');
       }
 
-      // Navigate to dashboard
-      navigate('/vendor/dashboard');
+      localStorage.removeItem('adminUser');
+      localStorage.removeItem('vendor');
+
+      if (data.userType === 'admin') {
+        localStorage.setItem('adminUser', JSON.stringify(data.admin));
+      } else if (data.userType === 'vendor') {
+        localStorage.setItem('vendor', JSON.stringify(data.vendor));
+      } else {
+        throw new Error('Unknown user type returned by server');
+      }
+
+      // Login to Firebase with custom token
+      await loginWithCustomToken(data.customToken);
+
+      // Redirect using backend-detected user type
+      if (data.userType === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/vendor/dashboard', { replace: true });
+      }
     } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'Login failed');
+      setError(err.response?.data?.error || err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -68,8 +75,19 @@ function VendorLogin() {
   return (
     <div className="min-h-screen bg-primary-dark flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl p-8 shadow-xl">
-        <h1 className="text-2xl font-extrabold text-text-light">Vendor Login</h1>
-        <p className="text-sm text-text-medium mt-1">Access your vendor dashboard</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold text-text-light">
+              Login
+            </h1>
+            <p className="text-sm text-text-medium mt-1">
+              Access your dashboard
+            </p>
+          </div>
+          <div className="text-2xl">
+            🔐
+          </div>
+        </div>
 
         {error && (
           <div className="mt-4 p-3 bg-red-900 border border-red-700 text-red-200 rounded-lg">
@@ -79,17 +97,18 @@ function VendorLogin() {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="contact_email" className="block text-sm font-semibold text-text-light mb-2">
-              Email Address
+            <label htmlFor="email" className="block text-sm font-semibold text-text-light mb-2">
+              Email
             </label>
             <input
               type="email"
-              id="contact_email"
-              name="contact_email"
-              value={formData.contact_email}
+              id="email"
+              name="email"
+              value={formData.email}
               onChange={handleChange}
               required
               placeholder="Enter your email"
+              autoComplete="email"
               className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-text-light placeholder-slate-500 focus:outline-none focus:border-primary-blue"
             />
           </div>
@@ -106,6 +125,7 @@ function VendorLogin() {
               onChange={handleChange}
               required
               placeholder="Enter your password"
+              autoComplete="current-password"
               className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-text-light placeholder-slate-500 focus:outline-none focus:border-primary-blue"
             />
           </div>
@@ -121,14 +141,9 @@ function VendorLogin() {
 
         <div className="mt-6 space-y-2 text-sm text-text-medium">
           <p>
-            Don't have an account?{' '}
+            Don't have a vendor account?{' '}
             <a className="text-text-light font-semibold hover:text-white" href="/vendor/register">
               Register here
-            </a>
-          </p>
-          <p>
-            <a className="text-text-light font-semibold hover:text-white" href="/admin/login">
-              Admin Login
             </a>
           </p>
         </div>
@@ -137,4 +152,4 @@ function VendorLogin() {
   );
 }
 
-export default VendorLogin;
+export default Login;

@@ -1,7 +1,160 @@
+import { useMemo, useState } from 'react';
+
 // Read-only product list for purchase manager
-function ProductsTab({ products, onSelectProduct, onViewVendors }) {
+function ProductsTab({ 
+  products = [], 
+  onSelectProduct = () => {}, 
+  onViewVendors = () => {},
+  onCreateProduct = () => {}
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    item_no: '',
+    description: '',
+    size: '',
+    stock: 0,
+    active: true,
+  });
+
+  const sortedProducts = useMemo(
+    () => [...products].sort((a, b) => (a.title || '').localeCompare(b.title || '')),
+    [products]
+  );
+
+  const resetForm = () => {
+    setForm({
+      title: '',
+      item_no: '',
+      description: '',
+      size: '',
+      stock: 0,
+      active: true,
+    });
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.item_no.trim()) {
+      alert('Title and item number are required');
+      return;
+    }
+
+    setSaving(true);
+    const payload = {
+      title: form.title.trim(),
+      item_no: form.item_no.trim(),
+      description: form.description?.trim() || null,
+      size: form.size?.trim() || null,
+      stock: Number(form.stock || 0),
+      active: !!form.active,
+    };
+
+    try {
+      await onCreateProduct(payload);
+      setShowForm(false);
+      resetForm();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={openCreate}
+          className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800"
+        >
+          Add Product
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-900">Add Product</h3>
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm(false);
+                resetForm();
+              }}
+              className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Product title"
+              value={form.title}
+              onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+              required
+            />
+            <input
+              type="text"
+              placeholder="Item number"
+              value={form.item_no}
+              onChange={(e) => setForm((prev) => ({ ...prev, item_no: e.target.value }))}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+              required
+            />
+            <input
+              type="text"
+              placeholder="Size"
+              value={form.size}
+              onChange={(e) => setForm((prev) => ({ ...prev, size: e.target.value }))}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+            />
+            <input
+              type="number"
+              placeholder="Stock"
+              value={form.stock}
+              onChange={(e) => setForm((prev) => ({ ...prev, stock: e.target.value }))}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+            />
+          </div>
+
+          <textarea
+            placeholder="Description"
+            value={form.description}
+            onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+            rows={3}
+          />
+
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={!!form.active}
+              onChange={(e) => setForm((prev) => ({ ...prev, active: e.target.checked }))}
+            />
+            Active
+          </label>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+            >
+              {saving ? 'Saving...' : 'Create Product'}
+            </button>
+          </div>
+        </form>
+      )}
+
       {products.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center shadow-sm">
           <div className="text-5xl mb-4">📦</div>
@@ -10,7 +163,7 @@ function ProductsTab({ products, onSelectProduct, onViewVendors }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {products.map((product) => (
+          {sortedProducts.map((product) => (
             <div key={product.productId || product.productid} className="data-card flex flex-col gap-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

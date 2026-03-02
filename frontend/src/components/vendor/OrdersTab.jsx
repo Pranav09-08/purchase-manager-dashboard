@@ -1,7 +1,15 @@
 import { useState } from 'react';
 
 // Vendor orders list and confirmation
-function OrdersTab({ orders, onConfirm, onGoToInvoices, focusLoiId, onClearFocus, onViewInvoice, onEditInvoice }) {
+function OrdersTab({ 
+  orders = [], 
+  onConfirm = () => {}, 
+  onGoToInvoices = () => {}, 
+  focusLoiId, 
+  onClearFocus, 
+  onViewInvoice = () => {}, 
+  onEditInvoice = () => {} 
+}) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderSearch, setOrderSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');

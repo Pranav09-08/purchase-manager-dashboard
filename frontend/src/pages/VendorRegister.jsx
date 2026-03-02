@@ -1,7 +1,7 @@
 // Vendor registration page
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import vendorAuthApi from '../api/vendor/auth.api';
+import authApi from '../api/auth.api';
 
 function VendorRegister() {
   const navigate = useNavigate();
@@ -38,10 +38,10 @@ function VendorRegister() {
 
     try {
       // Register vendor (no password needed - will be set via email link)
-      const { data } = await vendorAuthApi.register(formData);
+      const { data } = await authApi.register(formData);
       setMessage(data.message || 'Registration submitted successfully. Check your email to set password. Please wait for admin approval.');
       setTimeout(() => {
-        navigate('/vendor/login');
+        navigate('/login');
       }, 3000);
     } catch (err) {
       console.error('Registration error:', err);
@@ -273,7 +273,7 @@ function VendorRegister() {
                   Already have an account?{' '}
                   <button
                     type="button"
-                    onClick={() => navigate('/vendor/login')}
+                    onClick={() => navigate('/login')}
                     className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors"
                   >
                     Sign in here

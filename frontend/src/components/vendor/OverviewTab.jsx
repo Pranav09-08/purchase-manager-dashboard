@@ -7,7 +7,7 @@
  * - purchaseEnquiries: Array of enquiries
  * - purchaseOrders: Array of orders
  * - vendorInvoices: Array of invoices
- * - supplier: Vendor profile object
+ * - vendor: Vendor profile object
  * - isEditingAccount: Boolean for account edit mode
  * - accountFormData: Form data for account edit
  * - onAccountInputChange: Handler for form input changes
@@ -21,7 +21,7 @@ function OverviewTab({
   purchaseEnquiries = [],
   purchaseOrders = [],
   vendorInvoices = [],
-  supplier = null,
+  vendor = null,
   isEditingAccount = false,
   accountFormData = {},
   onAccountInputChange = () => {},
@@ -63,7 +63,7 @@ function OverviewTab({
       {/* Welcome Header */}
       <div className="flex flex-col gap-3">
         <h1 className="text-3xl font-bold text-slate-900">
-          Welcome back, {supplier?.company_name || 'Vendor'}! 👋
+          Welcome back, {vendor?.company_name || 'Vendor'}! 👋
         </h1>
         <p className="text-slate-600">Manage your products, quotations, and orders in one place.</p>
       </div>
@@ -122,38 +122,38 @@ function OverviewTab({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase">Company Name</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">{supplier?.company_name || 'Not added'}</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{vendor?.company_name || 'Not added'}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase">TIN/GST</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">{supplier?.company_tin || 'Not added'}</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{vendor?.company_tin || 'Not added'}</p>
                 </div>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase">Address</p>
-                <p className="text-sm font-semibold text-slate-900 mt-1">{supplier?.address || 'Not added'}</p>
+                <p className="text-sm font-semibold text-slate-900 mt-1">{vendor?.address || 'Not added'}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase">Contact Person</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">{supplier?.contact_person || 'Not added'}</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{vendor?.contact_person || 'Not added'}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase">Phone</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">{supplier?.contact_phone || 'Not added'}</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{vendor?.contact_phone || 'Not added'}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase">Email</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">{supplier?.contact_email || 'Not added'}</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{vendor?.contact_email || 'Not added'}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase">Website</p>
                   <p className="text-sm font-semibold text-slate-900 mt-1">
-                    {supplier?.company_website ? (
-                      <a href={supplier.company_website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {supplier.company_website}
+                    {vendor?.company_website ? (
+                      <a href={vendor.company_website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {vendor.company_website}
                       </a>
                     ) : (
                       'Not added'

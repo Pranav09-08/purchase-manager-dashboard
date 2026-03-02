@@ -1,0 +1,168 @@
+
+
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import VendorRegister from './pages/VendorRegister';
+import AdminDashboard from './components/admin/AdminDashboard';
+import VendorDashboard from './components/vendor/VendorDashboard';
+import ProtectedRoute from './ProtectedRoute';
+
+function AppRoutes() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/vendor/register" element={<VendorRegister />} />
+
+        {/* Admin Dashboard Routes (Protected) */}
+        <Route path="/admin/dashboard" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/overview" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="overview" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/products" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="products" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/components" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="components" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/required-components" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="required-components" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/registrations" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="registrations" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/vendor-products" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="vendor-products" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/purchase-enquiries" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="purchase-enquiries" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/purchase-quotations" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="purchase-quotations" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/purchase-lois" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="purchase-lois" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/dashboard/purchase-orders" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="purchase-orders" />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/dashboard/purchase-payments" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="purchase-payments" />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/dashboard/payment-receipts" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="payment-receipts" />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/dashboard/vendor-invoices" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="vendor-invoices" />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/dashboard/analytics" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="analytics" />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/dashboard/purchase-requests" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard currentPage="purchase-requests" />
+          </ProtectedRoute>
+        } />
+        
+
+        {/* Vendor Dashboard Routes (Protected) */}
+        <Route path="/vendor/dashboard" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/overview" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="overview" />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/analytics" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="analytics" />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/components" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="components" />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/enquiries" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="enquiries" />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/quotations" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="quotations" />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/lois" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="lois" />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/orders" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="orders" />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/payments" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="payments" />
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/dashboard/invoices" element={
+          <ProtectedRoute requiredRole="vendor">
+            <VendorDashboard currentPage="invoices" />
+          </ProtectedRoute>
+        } />
+      </Routes>
+    </Router>
+  );
+}
+
+export default AppRoutes;

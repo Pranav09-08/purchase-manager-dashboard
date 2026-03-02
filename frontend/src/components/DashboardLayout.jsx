@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 function DashboardLayout({ 
-  userType = 'supplier', 
+  userType = 'vendor', 
   userName = 'User',
   userProfile = null,
   children, 
@@ -32,19 +32,19 @@ function DashboardLayout({
       await logout();
       
       // Clear old localStorage tokens (backward compatibility)
-      if (userType === 'supplier') {
+      if (userType === 'vendor') {
         localStorage.removeItem('token');
-        localStorage.removeItem('supplier');
-        navigate('/vendor/login');
+        localStorage.removeItem('vendor');
+        navigate('/login');
       } else {
         localStorage.removeItem('adminToken');
         localStorage.removeItem('adminUser');
-        navigate('/admin/login');
+        navigate('/login');
       }
     } catch (error) {
       console.error('Logout error:', error);
       // Still navigate even if Firebase logout fails
-      navigate(userType === 'supplier' ? '/vendor/login' : '/admin/login');
+      navigate(userType === 'vendor' ? '/login' : '/login');
     }
   };
 
@@ -55,7 +55,7 @@ function DashboardLayout({
 
   const profile = userProfile || {
     name: userName,
-    role: userType === 'supplier' ? 'Vendor' : 'Purchase Manager',
+    role: userType === 'vendor' ? 'Vendor' : 'Purchase Manager',
     email: '',
     company: '',
   };
@@ -80,7 +80,7 @@ function DashboardLayout({
 
         {/* Navigation */}
         <nav className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-2 space-y-2 mt-2">
-          {userType === 'supplier' ? (
+          {userType === 'vendor' ? (
             <>
               {!sidebarCollapsed && (
                 <div className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -293,16 +293,6 @@ function DashboardLayout({
                 </svg>
                 {!sidebarCollapsed && <span>Vendor Components</span>}
               </button>
-              <button 
-                onClick={() => navigateTo('required-components')}
-                className="flex items-center gap-3 w-full px-3 py-2.5 text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-800 hover:text-slate-100 transition-all"
-              >
-                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                </svg>
-                {!sidebarCollapsed && <span>Add Components</span>}
-              </button>
               {!sidebarCollapsed && (
                 <div className="px-3 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Procurement
@@ -471,7 +461,7 @@ function DashboardLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col ml-56 overflow-hidden">
         {/* Header */}
-        <header className="fixed top-0 right-0 left-56 h-16 bg-gradient-to-r from-slate-900 to-slate-900 border-b border-slate-800 shadow-lg z-10 flex items-center justify-between px-6">
+        <header className="fixed top-0 right-0 left-56 h-16 bg-gradient-to-r from-slate-900 to-slate-900 border-b border-slate-800 shadow-lg z-30 flex items-center justify-between px-6">
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-extrabold text-slate-100 truncate">{currentPage}</h1>
             {pageDescription && <p className="text-xs text-slate-300 truncate">{pageDescription}</p>}
@@ -480,17 +470,17 @@ function DashboardLayout({
             <button
               type="button"
               onClick={() => setProfileOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-full bg-slate-800/60 px-2 py-1.5 hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-2 rounded-full bg-slate-800/60 px-3 py-2 hover:bg-slate-800 transition-colors"
             >
               <span className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 text-white text-sm font-bold">
-                {initials || 'U'}
+                {initials}
               </span>
               <div className="hidden md:flex flex-col text-left">
                 <span className="text-sm font-semibold text-slate-100 leading-tight">
                   {profile.name || userName}
                 </span>
                 <span className="text-xs text-slate-400 uppercase tracking-wide">
-                  {profile.role || (userType === 'supplier' ? 'Vendor' : 'Purchase Manager')}
+                  {profile.role || (userType === 'vendor' ? 'Vendor' : 'Purchase Manager')}
                 </span>
               </div>
               <svg className="w-4 h-4 text-slate-300" viewBox="0 0 20 20" fill="currentColor">
@@ -499,14 +489,14 @@ function DashboardLayout({
             </button>
 
             {profileOpen && (
-              <div className="absolute right-0 top-14 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="absolute right-0 top-14 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
                 <div className="p-4 bg-slate-50 border-b border-slate-200">
                   <div className="flex items-center gap-3">
                     <span className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-600 text-white text-sm font-bold">
                       {initials || 'U'}
                     </span>
                     <div>
-                      <p className="text-xs text-slate-500 uppercase">{profile.role || (userType === 'supplier' ? 'Vendor' : 'Purchase Manager')}</p>
+                      <p className="text-xs text-slate-500 uppercase">{profile.role || (userType === 'vendor' ? 'Vendor' : 'Purchase Manager')}</p>
                       <p className="text-base font-bold text-slate-900">{profile.name || userName}</p>
                     </div>
                   </div>

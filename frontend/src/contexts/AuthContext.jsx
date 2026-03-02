@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState(null);
+  const [userRole, setUserRole] = useState(null); // 'admin' or 'vendor'
   const refreshIntervalRef = useRef(null);
 
   // Get fresh ID token
@@ -67,7 +68,6 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     console.log('🔥 Setting up Firebase auth listener...');
-    
     // Safety timeout - if Firebase doesn't respond in 3 seconds, unblock anyway
     const safetyTimeout = setTimeout(() => {
       console.log('⚠️ Firebase initialization timeout - proceeding anyway');
@@ -81,22 +81,32 @@ export function AuthProvider({ children }) {
         async (user) => {
           console.log('✅ Firebase auth state changed:', user ? 'User logged in' : 'No user');
           clearTimeout(safetyTimeout); // Cancel safety timeout
-          
+
           // Clear any existing refresh interval
           if (refreshIntervalRef.current) {
             clearInterval(refreshIntervalRef.current);
             refreshIntervalRef.current = null;
           }
-          
+
           setCurrentUser(user);
-          
+
+          // Determine user role from localStorage
           if (user) {
             // Get ID token when user signs in
             try {
               const token = await user.getIdToken();
               setIdToken(token);
               console.log('🔑 ID token obtained');
-              
+
+              // Role detection: check localStorage for adminUser or vendor
+              if (localStorage.getItem('adminUser')) {
+                setUserRole('admin');
+              } else if (localStorage.getItem('vendor')) {
+                setUserRole('vendor');
+              } else {
+                setUserRole(null);
+              }
+
               // Refresh token every 50 minutes (tokens expire after 1 hour)
               const interval = setInterval(async () => {
                 try {
@@ -107,15 +117,16 @@ export function AuthProvider({ children }) {
                   console.error('Token refresh error:', err);
                 }
               }, 50 * 60 * 1000);
-              
+
               refreshIntervalRef.current = interval;
             } catch (error) {
               console.error('Error getting ID token:', error);
             }
           } else {
             setIdToken(null);
+            setUserRole(null);
           }
-          
+
           setLoading(false);
         }
       );
@@ -134,9 +145,11 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+
   const value = {
     currentUser,
     idToken,
+    userRole,
     login,
     loginWithCustomToken,
     signup,
