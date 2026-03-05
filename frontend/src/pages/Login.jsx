@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import adminAuthApi from '../api/auth.api';
+import authApi from '../api/auth.api';
 import { useAuth } from '../contexts/AuthContext';
 
 
@@ -15,8 +15,8 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  if (!authLoading && currentUser && userRole === 'admin') {
-    return <Navigate to="/admin/dashboard" replace />;
+  if (!authLoading && currentUser && userRole === 'purchase_manager') {
+    return <Navigate to="/purchase-manager/dashboard" replace />;
   }
 
   if (!authLoading && currentUser && userRole === 'vendor') {
@@ -39,17 +39,17 @@ function Login() {
         password: formData.password,
       };
       
-      const { data } = await adminAuthApi.login(payload);
+      const { data } = await authApi.login(payload);
       
       if (!data.customToken) {
         throw new Error('No custom token received from server');
       }
 
-      localStorage.removeItem('adminUser');
+      localStorage.removeItem('purchaseManagerUser');
       localStorage.removeItem('vendor');
 
-      if (data.userType === 'admin') {
-        localStorage.setItem('adminUser', JSON.stringify(data.admin));
+      if (data.userType === 'purchase_manager') {
+        localStorage.setItem('purchaseManagerUser', JSON.stringify(data.purchaseManager));
       } else if (data.userType === 'vendor') {
         localStorage.setItem('vendor', JSON.stringify(data.vendor));
       } else {
@@ -60,8 +60,8 @@ function Login() {
       await loginWithCustomToken(data.customToken);
 
       // Redirect using backend-detected user type
-      if (data.userType === 'admin') {
-        navigate('/admin/dashboard', { replace: true });
+      if (data.userType === 'purchase_manager') {
+        navigate('/purchase-manager/dashboard', { replace: true });
       } else {
         navigate('/vendor/dashboard', { replace: true });
       }

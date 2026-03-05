@@ -20,4 +20,9 @@ export const confirmVendorOrder = async (token, orderId) => {
   return data;
 };
 
+export const getVendorOrder = async (token, orderId) => {
+  const { data } = await vendorOrdersApi.getById(token, orderId);
+  return data;
+};
+
 export default vendorOrdersApi;

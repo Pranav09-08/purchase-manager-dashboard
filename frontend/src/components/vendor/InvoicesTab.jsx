@@ -25,6 +25,14 @@ function InvoicesTab({
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showErrors, setShowErrors] = useState(false);
+  
+  // Auto-switch to create tab when order data is pre-filled (from Create Invoice button)
+  useEffect(() => {
+    if (formData.orderId && items.length > 0 && activeTab !== 'create') {
+      setActiveTab('create');
+    }
+  }, [formData.orderId, items.length]);
+  
   // Reset error flags when form is cleared (after successful submission)
   // Check if form is in cleared/initial state by checking multiple fields
   useEffect(() => {
@@ -246,7 +254,16 @@ function InvoicesTab({
             ) : (
               <div className="space-y-3">
                 {items.map((item, index) => (
-                  <div key={`${item.componentId}-${index}`} className="grid grid-cols-1 md:grid-cols-8 gap-3 bg-white border border-slate-200 rounded-lg p-3">
+                  <div key={`${item.componentId}-${index}`} className="bg-white border border-slate-200 rounded-lg p-3">
+                    {item.description && (
+                      <div className="mb-3 pb-2 border-b border-slate-200">
+                        <p className="text-sm font-semibold text-slate-900">{item.description}</p>
+                        {item.componentId && (
+                          <p className="text-xs text-slate-500">Component ID: {item.componentId}</p>
+                        )}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-8 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1">Qty</label>
                       <input
@@ -335,6 +352,7 @@ function InvoicesTab({
                       >
                         Remove
                       </button>
+                    </div>
                     </div>
                   </div>
                 ))}

@@ -7,8 +7,10 @@ export const listVendorPayments = async (token, vendorId) => {
   return data;
 };
 
-export const vendorPaymentReceipt = async (token, paymentId) => {
-  const { data } = await apiClient.put(`/payments/${paymentId}/receipt`, {}, {
+export const vendorPaymentReceipt = async (token, paymentId, receiptReference = '') => {
+  const { data } = await apiClient.put(`/payments/${paymentId}/receipt`, {
+    receiptReference: receiptReference || null
+  }, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return data;

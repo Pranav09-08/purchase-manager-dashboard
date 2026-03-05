@@ -1,24 +1,16 @@
 import { useState } from 'react';
 
-// Vendor orders list and confirmation
-function OrdersTab({ 
-  orders = [], 
-  onConfirm = () => {}, 
-  onGoToInvoices = () => {}, 
-  focusLoiId, 
-  onClearFocus, 
-  onViewInvoice = () => {}, 
-  onEditInvoice = () => {} 
-}) {
+// Purchase orders list
+function PurchaseOrdersTab({ orders, vendorLookup = {}, onGoToInvoices, focusLoiId, onClearFocus }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderSearch, setOrderSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const getNextStep = (status) => {
-    if (status === 'pending') return 'Review and confirm order acceptance.';
-    if (status === 'confirmed') return 'Generate and submit invoice for payment.';
-    if (status === 'completed') return 'Order completed and closed.';
+    if (status === 'pending') return 'Awaiting vendor confirmation.';
+    if (status === 'confirmed') return 'Await vendor invoice then process payment.';
+    if (status === 'completed') return 'Order fulfilled and completed.';
     if (status === 'cancelled') return 'Order cancelled. No action required.';
-    return 'Order processing in progress.';
+    return 'Order processing.';
   };
   const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
@@ -36,7 +28,8 @@ function OrdersTab({
     : orders;
   const filteredOrders = focusOrders.filter((order) => {
     const number = (order.order_number || '').toLowerCase();
-    const matchesSearch = number.includes(orderSearch.toLowerCase());
+    const vendor = (vendorLookup[order.vendor_id] || '').toLowerCase();
+    const matchesSearch = number.includes(orderSearch.toLowerCase()) || vendor.includes(orderSearch.toLowerCase());
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -44,7 +37,7 @@ function OrdersTab({
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
         <h2 className="text-2xl font-semibold text-slate-900">Purchase Orders</h2>
-        <p className="text-sm text-slate-500">Confirm orders from the PM. After confirmation, generate and submit invoices for payment.</p>
+        <p className="text-sm text-slate-500">Track vendor confirmations and delivery status. Orders are generated from accepted LOIs.</p>
       </div>
 
       {focusId && (
@@ -69,7 +62,7 @@ function OrdersTab({
           <div className="flex-1">
             <input
               type="text"
-              placeholder="Search orders by number..."
+              placeholder="Search orders by number or vendor..."
               value={orderSearch}
               onChange={(e) => setOrderSearch(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
@@ -108,7 +101,7 @@ function OrdersTab({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">{order.order_number}</p>
-                    <p className="text-xs text-slate-500">Expected: {formatDate(order.expected_delivery_date)}</p>
+                    <p className="text-xs text-slate-500">{vendorLookup[order.vendor_id] || 'Vendor'}</p>
                     <p className="text-xs text-slate-500 mt-1">{getNextStep(order.status)}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 justify-between sm:justify-end">
@@ -118,20 +111,6 @@ function OrdersTab({
                     <span className="text-sm font-semibold text-slate-900">{formatCurrency(order.total_amount)}</span>
                   </div>
                 </div>
-                {order.status === 'pending' && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onConfirm(order.order_id);
-                      }}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white"
-                    >
-                      Confirm
-                    </button>
-                  </div>
-                )}
               </button>
             ))}
           </div>
@@ -145,6 +124,7 @@ function OrdersTab({
               <div>
                 <p className="text-xs text-slate-500 uppercase">Order Details</p>
                 <h2 className="text-xl font-semibold text-slate-900">{selectedOrder.order_number}</h2>
+                <p className="text-xs text-slate-500 mt-1">Vendor: {vendorLookup[selectedOrder.vendor_id] || 'Vendor'}</p>
               </div>
               <button
                 onClick={() => setSelectedOrder(null)}
@@ -184,43 +164,16 @@ function OrdersTab({
               >
                 Close
               </button>
-              {selectedOrder.invoice && selectedOrder.invoice.length > 0 ? (
-                <>
-                  <button
-                    onClick={() => {
-                      if (onViewInvoice) {
-                        onViewInvoice(selectedOrder.invoice[0], selectedOrder);
-                      }
-                      setSelectedOrder(null);
-                    }}
-                    className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition"
-                  >
-                    📄 View Invoice
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (onEditInvoice) {
-                        onEditInvoice(selectedOrder.invoice[0], selectedOrder);
-                      }
-                      setSelectedOrder(null);
-                    }}
-                    className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition"
-                  >
-                    ✏️ Edit Invoice
-                  </button>
-                </>
-              ) : (
-                onGoToInvoices && (
-                  <button
-                    onClick={() => {
-                      onGoToInvoices(selectedOrder);
-                      setSelectedOrder(null);
-                    }}
-                    className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition"
-                  >
-                    Create Invoice
-                  </button>
-                )
+              {onGoToInvoices && (
+                <button
+                  onClick={() => {
+                    onGoToInvoices(selectedOrder);
+                    setSelectedOrder(null);
+                  }}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition"
+                >
+                  View Invoices
+                </button>
               )}
             </div>
           </div>
@@ -230,4 +183,4 @@ function OrdersTab({
   );
 }
 
-export default OrdersTab;
+export default PurchaseOrdersTab;

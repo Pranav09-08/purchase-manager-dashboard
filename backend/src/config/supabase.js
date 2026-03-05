@@ -10,7 +10,23 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-// Create and export client instance
-const client = supabase.createClient(supabaseUrl, supabaseKey);
+// Validate URL format
+try {
+  new URL(supabaseUrl);
+} catch (e) {
+  throw new Error(`Invalid Supabase URL format: ${supabaseUrl}`);
+}
+
+// Create and export client instance with enhanced config
+const client = supabase.createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+});
+
+console.log('✓ Supabase client initialized');
+console.log(`  URL: ${supabaseUrl.substring(0, 50)}...`);
 
 module.exports = client;

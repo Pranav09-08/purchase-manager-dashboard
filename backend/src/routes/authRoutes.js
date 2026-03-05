@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Public routes
 router.post('/auth/register', authController.registerVendor);
-router.post('/auth/login', authController.loginVendor); // Unified login for both vendors and admins
+router.post('/auth/login', authController.loginVendor); // Unified login for both vendors and purchase managers
 
 
 // Vendor routes (authenticated)

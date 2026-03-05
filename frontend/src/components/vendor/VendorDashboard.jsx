@@ -15,11 +15,12 @@ import AddComponentModal from './AddComponentModal';
 
 // Import vendor APIs
 import authApi from '../../api/auth.api';
-import { listVendorComponents, createVendorComponent, updateVendorComponent, deleteVendorComponent } from '../../api/vendor/components.api';
+import { listVendorComponents, createVendorComponent, updateVendorComponent, deleteVendorComponent, listAllComponents } from '../../api/vendor/components.api';
 import { listVendorEnquiries } from '../../api/vendor/enquiries.api';
-import { listVendorOrders, confirmVendorOrder } from '../../api/vendor/orders.api';
+import { listVendorOrders, confirmVendorOrder, getVendorOrder } from '../../api/vendor/orders.api';
 import { listVendorInvoices, createVendorInvoice } from '../../api/vendor/invoices.api';
 import { listVendorQuotations, createVendorQuotation } from '../../api/vendor/quotations.api';
+import { listVendorCounterQuotations, respondToCounterQuotation } from '../../api/vendor/counterQuotations.api';
 import { listVendorLois, vendorLoiAction } from '../../api/vendor/lois.api';
 import { listVendorPayments, vendorPaymentReceipt } from '../../api/vendor/payments.api';
 
@@ -43,10 +44,12 @@ function VendorDashboard(props) {
   
   // Data states
   const [components, setComponents] = useState([]);
+  const [allComponents, setAllComponents] = useState([]); // Master component catalog for lookups
   const [enquiries, setEnquiries] = useState([]);
   const [orders, setOrders] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [quotations, setQuotations] = useState([]);
+  const [counters, setCounters] = useState([]);
   const [lois, setLois] = useState([]);
   const [payments, setPayments] = useState([]);
 
@@ -72,6 +75,7 @@ function VendorDashboard(props) {
     enquiryId: '',
     validTill: '',
     expectedDeliveryDate: '',
+    advancePaymentPercent: 0,
     termsAndConditions: '',
     notes: '',
   });
@@ -82,6 +86,7 @@ function VendorDashboard(props) {
     quotationId: '',
     validTill: '',
     expectedDeliveryDate: '',
+    advancePaymentPercent: 0,
     termsAndConditions: '',
     notes: '',
   });
@@ -157,27 +162,33 @@ function VendorDashboard(props) {
         // Fetch all data in parallel
         const [
           componentsData,
+          allComponentsData,
           enquiriesData,
           ordersData,
           invoicesData,
           quotationsData,
+          countersData,
           loisData,
           paymentsData,
         ] = await Promise.all([
           listVendorComponents(token).catch(() => ({ products: [] })),
+          listAllComponents(token).catch(() => ({ components: [] })),
           listVendorEnquiries(token, vendorId).catch(() => ({ enquiries: [] })),
           listVendorOrders(token, vendorId).catch(() => ({ orders: [] })),
           listVendorInvoices(token, vendorId).catch(() => ({ invoices: [] })),
           listVendorQuotations(token, vendorId).catch(() => ({ quotations: [] })),
+          listVendorCounterQuotations(token, vendorId).catch(() => ({ counters: [] })),
           listVendorLois(token, vendorId).catch(() => ({ lois: [] })),
           listVendorPayments(token, vendorId).catch(() => ({ payments: [] })),
         ]);
 
         setComponents(componentsData.products || componentsData.components || []);
+        setAllComponents(allComponentsData.components || []);
         setEnquiries(enquiriesData.enquiries || []);
         setOrders(ordersData.orders || []);
         setInvoices(invoicesData.invoices || []);
         setQuotations(quotationsData.quotations || []);
+        setCounters(countersData.counters || []);
         setLois(loisData.lois || []);
         setPayments(paymentsData.payments || []);
       } catch (error) {
@@ -332,32 +343,116 @@ function VendorDashboard(props) {
     }
   };
 
+  const formatDateForInput = (value) => {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toISOString().split('T')[0];
+  };
+
+  const addDaysForInput = (days) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split('T')[0];
+  };
+
+  const resolveNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const buildQuotationItemsFromEnquiry = (enquiry) => {
+    if (!enquiry?.items?.length) return [];
+
+    const resolveComponentId = (item) => item.component_id || item.componentId || item.componentid;
+    const allComps = [...components, ...allComponents];
+
+    return enquiry.items.map((item) => {
+      const enquiryComponentId = resolveComponentId(item);
+      const component = allComps.find((c) => (
+        String(c.componentId || c.componentid || c.component_id || c.id) === String(enquiryComponentId)
+      ));
+
+      return {
+        componentId: enquiryComponentId,
+        name: item.component_name || component?.component_name || component?.name || 'Component',
+        quantity: resolveNumber(item.quantity, 1),
+        unit: item.unit || component?.unit_of_measurement || component?.measurement_unit || component?.unit || '',
+        specifications: item.specifications || item.specification || '',
+        unitPrice: resolveNumber(
+          item.estimated_unit_cost
+            ?? item.unit_price
+            ?? item.unitPrice
+            ?? component?.price_per_unit
+            ?? component?.unit_price
+            ?? component?.cost_per_unit,
+          0
+        ),
+        discountPercent: resolveNumber(
+          item.discount_percent
+            ?? item.discount
+            ?? item.discountPercent
+            ?? component?.discount_percent
+            ?? component?.discountPercent
+            ?? component?.discount,
+          0
+        ),
+        cgstPercent: resolveNumber(
+          item.cgst
+            ?? item.cgst_percent
+            ?? item.cgstPercent
+            ?? component?.cgst
+            ?? component?.cgst_percent,
+          0
+        ),
+        sgstPercent: resolveNumber(
+          item.sgst
+            ?? item.sgst_percent
+            ?? item.sgstPercent
+            ?? component?.sgst
+            ?? component?.sgst_percent,
+          0
+        ),
+      };
+    });
+  };
+
   const handleCreateQuotation = (enquiry) => {
     // Switch to quotations tab and pre-fill form
     setCurrentPage('quotations');
     if (enquiry) {
+      const deliveryDate = formatDateForInput(enquiry.required_delivery_date || enquiry.requiredDeliveryDate);
+      const defaultValidTill = deliveryDate || addDaysForInput(7);
+      
       setQuotationForm({
         enquiryId: enquiry.enquiry_id || enquiry.id,
-        validTill: '',
-        expectedDeliveryDate: '',
+        validTill: defaultValidTill,
+        expectedDeliveryDate: deliveryDate,
+        advancePaymentPercent: 0,
         termsAndConditions: '',
-        notes: '',
+        notes: `Quotation for ${enquiry.title || 'Purchase Enquiry'}`,
       });
+
+      setQuotationItems(buildQuotationItemsFromEnquiry(enquiry));
     }
   };
 
   // Quotation handlers
   const handleSelectEnquiry = (enquiryId) => {
-    const enquiry = enquiries.find(e => (e.enquiry_id || e.id) === enquiryId);
+    const enquiry = enquiries.find(e => String(e.enquiry_id || e.id) === String(enquiryId));
     if (enquiry) {
-      setQuotationForm({
+      const deliveryDate = formatDateForInput(enquiry.required_delivery_date || enquiry.requiredDeliveryDate);
+      const defaultValidTill = deliveryDate || addDaysForInput(7);
+      
+      setQuotationForm(prev => ({
+        ...prev,
         enquiryId: enquiryId,
-        validTill: '',
-        expectedDeliveryDate: '',
-        termsAndConditions: '',
-        notes: '',
-      });
-      setQuotationItems([]);
+        validTill: prev.validTill || defaultValidTill,
+        expectedDeliveryDate: deliveryDate,
+        notes: `Quotation for ${enquiry.title || 'Purchase Enquiry'}`,
+      }));
+
+      setQuotationItems(buildQuotationItemsFromEnquiry(enquiry));
     }
   };
 
@@ -399,9 +494,22 @@ function VendorDashboard(props) {
         vendorId: vendorId,
         validTill: quotationForm.validTill,
         expectedDeliveryDate: quotationForm.expectedDeliveryDate,
+        advancePaymentPercent: quotationForm.advancePaymentPercent || 0,
         termsAndConditions: quotationForm.termsAndConditions || '',
         notes: quotationForm.notes || '',
-        items: quotationItems,
+        items: quotationItems.map((item) => {
+          const quantity = Number(item.quantity) || 0;
+          const unitPrice = Number(item.unitPrice) || 0;
+          return {
+            ...item,
+            quantity,
+            unitPrice,
+            discountPercent: Number(item.discountPercent) || 0,
+            cgstPercent: Number(item.cgstPercent) || 0,
+            sgstPercent: Number(item.sgstPercent) || 0,
+            lineTotal: quantity * unitPrice,
+          };
+        }),
       };
 
       await createVendorQuotation(token, payload);
@@ -411,6 +519,7 @@ function VendorDashboard(props) {
         enquiryId: '',
         validTill: '',
         expectedDeliveryDate: '',
+        advancePaymentPercent: 0,
         termsAndConditions: '',
         notes: '',
       });
@@ -499,7 +608,74 @@ function VendorDashboard(props) {
     setCurrentPage('orders');
   };
 
-  const handleGoToInvoices = () => {
+  const handleGoToInvoices = async (order) => {
+    const orderId = order.order_id || order.orderId;
+    
+    try {
+      // Fetch full order details including items
+      const token = idToken || await getIdToken(true);
+      const orderData = await getVendorOrder(token, orderId);
+      
+      const fullOrder = orderData.order || order;
+      
+      // Pre-fill invoice form with order details
+      setInvoiceForm({
+        orderId: orderId || '',
+        loiId: fullOrder.loi_id || fullOrder.loiId || '',
+        companyId: fullOrder.company_id || fullOrder.companyId || '',
+        invoiceNumber: '', // Let vendor fill this
+        invoiceDate: new Date().toISOString().split('T')[0],
+        dueDate: '', // Let vendor fill this
+        termsAndConditions: fullOrder.terms_and_conditions || fullOrder.termsAndConditions || '',
+        notes: '',
+      });
+      
+      // Pre-fill invoice items from order items
+      const items = fullOrder.items || [];
+      const invoiceItemsData = items.map(item => ({
+        componentId: item.component_id || item.componentId || '',
+        description: item.component_name || item.description || '',
+        quantity: item.quantity || 1,
+        unitPrice: item.unit_price || item.unitPrice || 0,
+        discountPercent: item.discount_percent || item.discountPercent || 0,
+        cgstPercent: item.cgst_percent || item.cgstPercent || 0,
+        sgstPercent: item.sgst_percent || item.sgstPercent || 0,
+        lineTotal: ((item.quantity || 1) * (item.unit_price || item.unitPrice || 0) * (1 - (item.discount_percent || item.discountPercent || 0) / 100)),
+      }));
+      
+      setInvoiceItems(invoiceItemsData);
+    } catch (error) {
+      console.error('Error fetching order details:', error);
+      
+      // If fetch fails, still pre-fill from the passed order object
+      setInvoiceForm({
+        orderId: orderId || '',
+        loiId: order.loi_id || order.loiId || '',
+        companyId: order.company_id || order.companyId || '',
+        invoiceNumber: '',
+        invoiceDate: new Date().toISOString().split('T')[0],
+        dueDate: '',
+        termsAndConditions: order.terms_and_conditions || order.termsAndConditions || '',
+        notes: '',
+      });
+      
+      // Try to get items from order if available
+      const items = order.items || [];
+      if (items.length > 0) {
+        const invoiceItemsData = items.map(item => ({
+          componentId: item.component_id || item.componentId || '',
+          description: item.component_name || item.description || '',
+          quantity: item.quantity || 1,
+          unitPrice: item.unit_price || item.unitPrice || 0,
+          discountPercent: item.discount_percent || item.discountPercent || 0,
+          cgstPercent: item.cgst_percent || item.cgstPercent || 0,
+          sgstPercent: item.sgst_percent || item.sgstPercent || 0,
+          lineTotal: ((item.quantity || 1) * (item.unit_price || item.unitPrice || 0) * (1 - (item.discount_percent || item.discountPercent || 0) / 100)),
+        }));
+        setInvoiceItems(invoiceItemsData);
+      }
+    }
+    
     setCurrentPage('invoices');
   };
 
@@ -607,10 +783,10 @@ function VendorDashboard(props) {
   };
 
   // Payment handlers
-  const handleConfirmPaymentReceived = async (paymentId) => {
+  const handleConfirmPaymentReceived = async (paymentId, receiptMessage = '') => {
     try {
       const token = idToken || await getIdToken(true);
-      await vendorPaymentReceipt(token, paymentId);
+      await vendorPaymentReceipt(token, paymentId, receiptMessage);
       
       // Refresh payments
       const vendorId = vendor.vendor_id || vendor.vendorId || vendor.uid;
@@ -686,7 +862,7 @@ function VendorDashboard(props) {
         {...props}
         vendor={vendor}
         components={components}
-        componentCatalog={components}
+        componentCatalog={[...components, ...allComponents]}
         enquiries={enquiries}
         purchaseEnquiries={enquiries}
         purchaseOrders={orders}
@@ -695,7 +871,7 @@ function VendorDashboard(props) {
         invoices={invoices}
         quotations={quotations}
         purchaseQuotations={quotations}
-        counters={[]}
+        counters={counters}
         lois={lois}
         payments={payments}
         onOpenAddModal={handleOpenAddModal}

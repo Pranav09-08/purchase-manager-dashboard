@@ -24,7 +24,10 @@ router.get('/products/:productId/components', authenticateToken, componentContro
 router.put('/components/:componentId/active', authenticateToken, componentController.updateComponentActive);
 router.get('/components/:componentCode/vendors', authenticateToken, componentController.getComponentVendors);
 
-// Admin: Get all vendor components
-router.get('/admin/vendor-components', authenticateToken, componentController.getAllVendorComponents);
+// Purchase Manager: Get all vendor components
+router.get('/purchase-manager/vendor-components', authenticateToken, componentController.getAllVendorComponents);
+
+// Purchase Manager: Get all components from components table
+router.get('/components', authenticateToken, componentController.getAllComponents);
 
 module.exports = router;

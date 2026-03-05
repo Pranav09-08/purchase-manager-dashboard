@@ -13,6 +13,9 @@ function PaymentsTab({
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [paymentSearch, setPaymentSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [receiptMessage, setReceiptMessage] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedPaymentForReceipt, setSelectedPaymentForReceipt] = useState(null);
   const orderLookup = orders.reduce((acc, order) => {
     acc[order.order_id] = order.order_number || 'Order';
     return acc;
@@ -154,7 +157,9 @@ function PaymentsTab({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onConfirmReceived(payment.payment_id);
+                        setSelectedPaymentForReceipt(payment);
+                        setReceiptMessage('');
+                        setShowReceiptModal(true);
                       }}
                       className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white"
                     >
@@ -290,6 +295,80 @@ function PaymentsTab({
                   Create Invoice
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReceiptModal && selectedPaymentForReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white shadow-lg">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div>
+                <p className="text-xs text-slate-500 uppercase">Send Payment Receipt</p>
+                <h2 className="text-lg font-semibold text-slate-900">{orderLookup[selectedPaymentForReceipt.order_id] || 'Order'}</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowReceiptModal(false);
+                  setSelectedPaymentForReceipt(null);
+                  setReceiptMessage('');
+                }}
+                className="text-slate-400 hover:text-slate-600 transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                <p className="text-xs font-semibold text-slate-600 mb-1">Amount</p>
+                <p className="text-2xl font-bold text-slate-900">{formatCurrency(selectedPaymentForReceipt.amount)}</p>
+                <p className="text-xs text-slate-600 mt-2">Phase: <span className="font-semibold">{selectedPaymentForReceipt.phase}</span></p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Receipt Message / Reference (Optional)
+                </label>
+                <textarea
+                  value={receiptMessage}
+                  onChange={(e) => setReceiptMessage(e.target.value)}
+                  placeholder="E.g., Payment received via bank transfer ref: ABC123 or link to receipt image/PDF"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none"
+                  rows="4"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  You can include a reference number, bank details, or link to the receipt document.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+              <button
+                onClick={() => {
+                  setShowReceiptModal(false);
+                  setSelectedPaymentForReceipt(null);
+                  setReceiptMessage('');
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onConfirmReceived(selectedPaymentForReceipt.payment_id, receiptMessage);
+                  setShowReceiptModal(false);
+                  setSelectedPaymentForReceipt(null);
+                  setReceiptMessage('');
+                  setSelectedPayment(null);
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition"
+              >
+                Send Receipt
+              </button>
             </div>
           </div>
         </div>

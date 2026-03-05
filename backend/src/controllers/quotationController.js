@@ -1,7 +1,9 @@
-/**
- * Vendor Counter Quotation
- * Vendor can negotiate, accept, or reject quotation
- */
+// Quotation management controller
+const supabase = require('../config/supabase');
+
+/* =========================================================
+   CREATE COUNTER QUOTATION (Vendor responds to quotation)
+   ========================================================= */
 exports.createCounterQuotation = async (req, res) => {
   try {
     const { quotationId, action, expectedDeliveryDate, items, validTill, advancePaymentPercent, rejectionReason, negotiationNotes } = req.body;
@@ -11,7 +13,6 @@ exports.createCounterQuotation = async (req, res) => {
       return res.status(401).json({ error: 'Vendor authentication required' });
     }
 
-    // Validation
     if (!quotationId || !action) {
       return res.status(400).json({
         error: 'Missing required fields: quotationId, action'
@@ -102,50 +103,35 @@ exports.createCounterQuotation = async (req, res) => {
       const { error: itemsError } = await supabase
         .from('vendor_counter_quotation_items')
         .insert(itemInserts);
+
       if (itemsError) throw itemsError;
     }
 
-    // Update quotation status if accepted or rejected
-    if (action === 'accept' || action === 'reject') {
-      const { error: quotationStatusError } = await supabase
-        .from('purchase_quotation')
-        .update({ status: counterStatus, updated_at: new Date().toISOString() })
-        .eq('quotation_id', quotationId);
-      if (quotationStatusError) throw quotationStatusError;
-    }
-
-    // Fetch complete counter quotation
-    const { data: completeCounter } = await supabase
-      .from('vendor_counter_quotation')
-      .select(`
-        *,
-        items:vendor_counter_quotation_items(*)
-      `)
-      .eq('counter_id', counterId)
-      .single();
+    // Update quotation status
+    const newQuotationStatus = action === 'reject' ? 'rejected' : 'negotiating';
+    await supabase
+      .from('purchase_quotation')
+      .update({ status: newQuotationStatus, updated_at: new Date().toISOString() })
+      .eq('quotation_id', quotationId);
 
     res.status(201).json({
-      message: 'Vendor counter quotation created successfully',
-      counterQuotation: completeCounter,
+      message: 'Counter quotation created successfully',
+      counter,
     });
   } catch (error) {
-    console.error('Error creating vendor counter quotation:', error);
+    console.error('CREATE COUNTER QUOTATION ERROR:', error);
     res.status(500).json({ error: error.message || 'Failed to create counter quotation' });
   }
 };
-// Purchase quotation controller
-const supabase = require('../config/supabase');
 
-/**
- * Create Purchase Quotation from Enquiry
- * PM sends pricing quotation to vendor based on enquiry
- */
+/* =========================================================
+   CREATE PURCHASE QUOTATION (PM creates for vendor)
+   ========================================================= */
 exports.createPurchaseQuotation = async (req, res) => {
   try {
     const { enquiryId, companyId, vendorId, items, validTill, expectedDeliveryDate, advancePaymentPercent, notes } = req.body;
     const purchaseManagerId = req.user?.vendor_id;
 
-    // Validation
     if (!enquiryId || !vendorId || !items || items.length === 0) {
       return res.status(400).json({
         error: 'Missing required fields: enquiryId, vendorId, and items'
@@ -163,10 +149,12 @@ exports.createPurchaseQuotation = async (req, res) => {
     // Calculate total amount
     let totalAmount = 0;
     const itemInserts = items.map((item) => {
-      const discountAmount = (item.lineTotal * (item.discountPercent || 0)) / 100;
-      const discountedPrice = item.lineTotal - discountAmount;
-      const cgstAmount = (discountedPrice * (item.cgstPercent || 0)) / 100;
-      const sgstAmount = (discountedPrice * (item.sgstPercent || 0)) / 100;
+      // Calculate base price from quantity * unit price
+      const basePrice = Number(item.quantity) * Number(item.unitPrice);
+      const discountAmount = (basePrice * (Number(item.discountPercent) || 0)) / 100;
+      const discountedPrice = basePrice - discountAmount;
+      const cgstAmount = (discountedPrice * (Number(item.cgstPercent) || 0)) / 100;
+      const sgstAmount = (discountedPrice * (Number(item.sgstPercent) || 0)) / 100;
       const taxAmount = cgstAmount + sgstAmount;
       const itemTotal = discountedPrice + taxAmount;
       totalAmount += itemTotal;
@@ -175,11 +163,11 @@ exports.createPurchaseQuotation = async (req, res) => {
         item_id: `pqi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         quotation_id: quotationId,
         component_id: item.componentId,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        discount_percent: item.discountPercent || 0,
-        cgst_percent: item.cgstPercent || 0,
-        sgst_percent: item.sgstPercent || 0,
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unitPrice),
+        discount_percent: Number(item.discountPercent) || 0,
+        cgst_percent: Number(item.cgstPercent) || 0,
+        sgst_percent: Number(item.sgstPercent) || 0,
         tax_amount: taxAmount,
         line_total: itemTotal,
         created_at: new Date().toISOString(),
@@ -250,10 +238,9 @@ exports.createPurchaseQuotation = async (req, res) => {
   }
 };
 
-/**
- * Vendor creates quotation from enquiry
- * Vendor responds to PM enquiry with pricing
- */
+/* =========================================================
+   CREATE VENDOR QUOTATION (Vendor responds to enquiry)
+   ========================================================= */
 exports.createVendorQuotation = async (req, res) => {
   try {
     const { enquiryId, items, validTill, expectedDeliveryDate, advancePaymentPercent, notes } = req.body;
@@ -301,10 +288,12 @@ exports.createVendorQuotation = async (req, res) => {
 
     let totalAmount = 0;
     const itemInserts = items.map((item) => {
-      const discountAmount = (item.lineTotal * (item.discountPercent || 0)) / 100;
-      const discountedPrice = item.lineTotal - discountAmount;
-      const cgstAmount = (discountedPrice * (item.cgstPercent || 0)) / 100;
-      const sgstAmount = (discountedPrice * (item.sgstPercent || 0)) / 100;
+      // Calculate base price from quantity * unit price
+      const basePrice = Number(item.quantity) * Number(item.unitPrice);
+      const discountAmount = (basePrice * (Number(item.discountPercent) || 0)) / 100;
+      const discountedPrice = basePrice - discountAmount;
+      const cgstAmount = (discountedPrice * (Number(item.cgstPercent) || 0)) / 100;
+      const sgstAmount = (discountedPrice * (Number(item.sgstPercent) || 0)) / 100;
       const taxAmount = cgstAmount + sgstAmount;
       const itemTotal = discountedPrice + taxAmount;
       totalAmount += itemTotal;
@@ -313,11 +302,11 @@ exports.createVendorQuotation = async (req, res) => {
         item_id: `pqi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         quotation_id: quotationId,
         component_id: item.componentId,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        discount_percent: item.discountPercent || 0,
-        cgst_percent: item.cgstPercent || 0,
-        sgst_percent: item.sgstPercent || 0,
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unitPrice),
+        discount_percent: Number(item.discountPercent) || 0,
+        cgst_percent: Number(item.cgstPercent) || 0,
+        sgst_percent: Number(item.sgstPercent) || 0,
         tax_amount: taxAmount,
         line_total: itemTotal,
         created_at: new Date().toISOString(),
@@ -365,6 +354,7 @@ exports.createVendorQuotation = async (req, res) => {
       throw vendorEnquiryStatusError;
     }
 
+    // Fetch complete quotation
     const { data: completeQuotation } = await supabase
       .from('purchase_quotation')
       .select(`
@@ -380,13 +370,13 @@ exports.createVendorQuotation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating vendor quotation:', error);
-    res.status(500).json({ error: error.message || 'Failed to create vendor quotation' });
+    res.status(500).json({ error: error.message || 'Failed to create quotation' });
   }
 };
 
-/**
- * Get Purchase Quotation by ID
- */
+/* =========================================================
+   GET PURCHASE QUOTATION BY ID
+   ========================================================= */
 exports.getPurchaseQuotation = async (req, res) => {
   try {
     const { quotationId } = req.params;
@@ -406,17 +396,17 @@ exports.getPurchaseQuotation = async (req, res) => {
 
     res.json({ quotation });
   } catch (error) {
-    console.error('Error fetching purchase quotation:', error);
+    console.error('GET QUOTATION ERROR:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch quotation' });
   }
 };
 
-/**
- * Get all Purchase Quotations
- */
+/* =========================================================
+   GET ALL PURCHASE QUOTATIONS
+   ========================================================= */
 exports.getPurchaseQuotations = async (req, res) => {
   try {
-    const { vendorId, status, enquiryId } = req.query;
+    const { vendorId, enquiryId, status } = req.query;
 
     let query = supabase
       .from('purchase_quotation')
@@ -426,8 +416,8 @@ exports.getPurchaseQuotations = async (req, res) => {
       `);
 
     if (vendorId) query = query.eq('vendor_id', vendorId);
-    if (status) query = query.eq('status', status);
     if (enquiryId) query = query.eq('enquiry_id', enquiryId);
+    if (status) query = query.eq('status', status);
 
     const { data: quotations, error } = await query.order('created_at', { ascending: false });
 
@@ -438,41 +428,118 @@ exports.getPurchaseQuotations = async (req, res) => {
       total: quotations?.length || 0,
     });
   } catch (error) {
-    console.error('Error fetching purchase quotations:', error);
+    console.error('GET QUOTATIONS ERROR:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch quotations' });
   }
 };
 
-/**
- * Update Purchase Quotation Status
- */
+/* =========================================================
+   UPDATE PURCHASE QUOTATION
+   ========================================================= */
 exports.updatePurchaseQuotation = async (req, res) => {
   try {
     const { quotationId } = req.params;
-    const { status, notes } = req.body;
+    const { status, expectedDeliveryDate, notes } = req.body;
 
-    const updateData = {
+    const updates = {
       updated_at: new Date().toISOString(),
     };
 
-    if (status) updateData.status = status;
-    if (notes) updateData.notes = notes;
+    if (status) updates.status = status;
+    if (expectedDeliveryDate) updates.expected_delivery_date = expectedDeliveryDate;
+    if (notes) updates.notes = notes;
 
     const { data: quotation, error } = await supabase
       .from('purchase_quotation')
-      .update(updateData)
+      .update(updates)
       .eq('quotation_id', quotationId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error || !quotation) {
+      return res.status(404).json({ error: 'Quotation not found' });
+    }
 
     res.json({
       message: 'Quotation updated successfully',
       quotation,
     });
   } catch (error) {
-    console.error('Error updating purchase quotation:', error);
+    console.error('UPDATE QUOTATION ERROR:', error);
     res.status(500).json({ error: error.message || 'Failed to update quotation' });
   }
 };
+
+/* =========================================================
+   GET ALL COUNTER QUOTATIONS
+   ========================================================= */
+exports.getCounterQuotations = async (req, res) => {
+  try {
+    const { vendorId, quotationId, status } = req.query;
+
+    let query = supabase
+      .from('vendor_counter_quotation')
+      .select(`
+        *,
+        items:vendor_counter_quotation_items(*)
+      `);
+
+    if (vendorId) query = query.eq('vendor_id', vendorId);
+    if (quotationId) query = query.eq('quotation_id', quotationId);
+    if (status) query = query.eq('status', status);
+
+    const { data: counters, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      counters: counters || [],
+      total: counters?.length || 0,
+    });
+  } catch (error) {
+    console.error('GET COUNTER QUOTATIONS ERROR:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch counter quotations' });
+  }
+};
+
+/* =========================================================
+   UPDATE COUNTER QUOTATION
+   ========================================================= */
+exports.updateCounterQuotation = async (req, res) => {
+  try {
+    const { counterId } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const { data: counter, error } = await supabase
+      .from('vendor_counter_quotation')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('counter_id', counterId)
+      .select()
+      .single();
+
+    if (error || !counter) {
+      return res.status(404).json({ error: 'Counter quotation not found' });
+    }
+
+    // If counter accepted, update original quotation status
+    if (status === 'accepted') {
+      await supabase
+        .from('purchase_quotation')
+        .update({ status: 'accepted', updated_at: new Date().toISOString() })
+        .eq('quotation_id', counter.quotation_id);
+    }
+
+    res.json({
+      message: 'Counter quotation updated successfully',
+      counter,
+    });
+  } catch (error) {
+    console.error('UPDATE COUNTER QUOTATION ERROR:', error);
+    res.status(500).json({ error: error.message || 'Failed to update counter quotation' });
+  }
+};
+

@@ -158,7 +158,7 @@ exports.getPriceHistory = async (req, res) => {
   }
 };
 
-// Get all vendor products (for admin)
+// Get all vendor products (for purchase manager)
 exports.getAllVendorProducts = async (req, res) => {
   try {
     const { companyId } = req.query;

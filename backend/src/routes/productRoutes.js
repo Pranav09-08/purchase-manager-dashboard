@@ -15,7 +15,7 @@ router.delete('/products/:id', authenticateToken, productController.deleteProduc
 router.post('/products/price/update', authenticateToken, productController.updateDailyPrice);
 router.get('/products/:productId/price-history', authenticateToken, productController.getPriceHistory);
 
-// Admin routes for vendor products
-router.get('/admin/vendor-products', authenticateToken, productController.getAllVendorProducts);
+// Purchase Manager routes for vendor products
+router.get('/purchase-manager/vendor-products', authenticateToken, productController.getAllVendorProducts);
 
 module.exports = router;

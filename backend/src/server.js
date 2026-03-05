@@ -29,56 +29,56 @@ initDatabase();
 
 // ROUTES
 
-// Authentication & Registration (Common: Admin & Vendor)
+// Authentication & Registration (Common: Purchase Manager & Vendor)
 const authRoutes = require('./routes/authRoutes');
 app.use('/api', authRoutes);
 
-// Product Management (Admin)
+// Product Management (Purchase Manager)
 const productRoutes = require('./routes/productRoutes');
 app.use('/api', productRoutes);
 
-// Component Management (Admin)
+// Component Management (Purchase Manager)
 const componentRoutes = require('./routes/componentRoutes');
 app.use('/api', componentRoutes);
 
-// Inventory Management (Admin)
+// Inventory Management (Purchase Manager)
 const inventoryRoutes = require('./routes/inventoryRoutes');
 app.use('/api', inventoryRoutes);
 
-// Company Management (Admin)
+// Company Management (Purchase Manager)
 const companyRoutes = require('./routes/companyRoutes');
 app.use('/api', companyRoutes);
 
-// Request Management (Admin)
+// Request Management (Purchase Manager)
 const requestRoutes = require('./routes/requestRoutes');
 app.use('/api', requestRoutes);
 
-// Analytics (Admin)
+// Analytics (Purchase Manager)
 const analyticsRoutes = require('./routes/analyticsRoutes');
 app.use('/api', analyticsRoutes);
 
 
-// Quotation Management (Vendor & Admin)
+// Quotation Management (Vendor & Purchase Manager)
 const quotationRoutes = require('./routes/quotationRoutes');
 app.use('/api', quotationRoutes);
 
-// LOI Management (Vendor & Admin)
+// LOI Management (Vendor & Purchase Manager)
 const loiRoutes = require('./routes/loiRoutes');
 app.use('/api', loiRoutes);
 
-// Order Management (Vendor & Admin)
+// Order Management (Vendor & Purchase Manager)
 const orderRoutes = require('./routes/orderRoutes');
 app.use('/api', orderRoutes);
 
-// Payment Management (Vendor & Admin)
+// Payment Management (Vendor & Purchase Manager)
 const paymentRoutes = require('./routes/paymentRoutes');
 app.use('/api', paymentRoutes);
 
-// Enquiry Management (Vendor & Admin)
+// Enquiry Management (Vendor & Purchase Manager)
 const enquiryRoutes = require('./routes/enquiryRoutes');
 app.use('/api', enquiryRoutes);
 
-// Invoice Management (Vendor & Admin)
+// Invoice Management (Vendor & Purchase Manager)
 const invoiceRoutes = require('./routes/invoiceRoutes');
 app.use('/api', invoiceRoutes);
 

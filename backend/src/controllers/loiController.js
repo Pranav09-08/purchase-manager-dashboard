@@ -5,6 +5,10 @@ const supabase = require('../config/supabase');
    ========================================================= */
 exports.createLOI = async (req, res) => {
   try {
+    console.log('LOI Controller - createLOI called');
+    console.log('Request body:', req.body);
+    console.log('User:', req.user);
+    
     const {
       quotationId,
       counterQuotationId,
@@ -134,6 +138,72 @@ exports.getAllLOIs = async (req, res) => {
   } catch (error) {
     console.error('GET LOIs ERROR:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch LOIs' });
+  }
+};
+
+/* =========================================================
+   UPDATE LOI
+   ========================================================= */
+exports.updateLOI = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      quotationId,
+      counterQuotationId,
+      totalAmount,
+      advancePaymentPercent,
+      expectedDeliveryDate,
+      termsAndConditions,
+      status,
+    } = req.body;
+
+    console.log('LOI Controller - updateLOI called for ID:', id);
+    console.log('Update payload:', req.body);
+
+    // Fetch existing LOI
+    const { data: existingLoi, error: fetchError } = await supabase
+      .from('purchase_loi')
+      .select('*')
+      .eq('loi_id', id)
+      .single();
+
+    if (fetchError || !existingLoi) {
+      return res.status(404).json({ error: 'LOI not found' });
+    }
+
+    // Build update object - only update provided fields
+    const updateData = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (quotationId !== undefined) updateData.quotation_id = quotationId;
+    if (counterQuotationId !== undefined) updateData.counter_quotation_id = counterQuotationId;
+    if (totalAmount !== undefined) updateData.total_amount = totalAmount;
+    if (advancePaymentPercent !== undefined) {
+      updateData.advance_payment_percent = advancePaymentPercent;
+      updateData.final_payment_percent = 100 - advancePaymentPercent;
+    }
+    if (expectedDeliveryDate !== undefined) updateData.expected_delivery_date = expectedDeliveryDate;
+    if (termsAndConditions !== undefined) updateData.terms_and_conditions = termsAndConditions;
+    if (status !== undefined) updateData.status = status;
+
+    // Update LOI
+    const { data: updated, error } = await supabase
+      .from('purchase_loi')
+      .update(updateData)
+      .eq('loi_id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      message: 'LOI updated successfully',
+      loi: updated,
+    });
+  } catch (error) {
+    console.error('UPDATE LOI ERROR:', error);
+    res.status(500).json({ error: error.message || 'Failed to update LOI' });
   }
 };
 

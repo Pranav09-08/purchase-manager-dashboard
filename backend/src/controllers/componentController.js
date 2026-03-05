@@ -1,9 +1,9 @@
-// Admin: Get all vendor components
+// Purchase Manager: Get all vendor components
 exports.getAllVendorComponents = async (req, res) => {
   try {
-    // Only allow admin users
-    if (!req.user || req.user.type !== 'admin') {
-      return res.status(403).json({ error: 'Admin authentication required' });
+    // Only allow purchase manager users
+    if (!req.user || req.user.type !== 'purchase_manager') {
+      return res.status(403).json({ error: 'Purchase Manager authentication required' });
     }
     const { data: components, error } = await supabase
       .from('vendor_components')
@@ -180,8 +180,8 @@ const getAllCompaniesForVendor = async (vendorId) => {
 // Get vendor components (authenticated)
 exports.getVendorComponents = async (req, res) => {
   try {
-    // If admin, return all vendor components
-    if (req.user && req.user.type === 'admin') {
+    // If purchase manager, return all vendor components
+    if (req.user && req.user.type === 'purchase_manager') {
       const { data: components, error } = await supabase
         .from('vendor_components')
         .select('*, vendorregistration:vendorregistration!fk_vendor_components_vendor_id(vendor_id, company_name, contact_person), Company:companyid(companyId, company_name)')
@@ -789,10 +789,10 @@ exports.addAvailableComponent = async (req, res) => {
 exports.approveVendorComponent = async (req, res) => {
   try {
     const { componentId } = req.params;
-    const isAdmin = req.user?.type === 'admin';
+    const isPurchaseManager = req.user?.type === 'purchase_manager';
 
-    if (!isAdmin) {
-      return res.status(401).json({ error: 'Admin authentication required' });
+    if (!isPurchaseManager) {
+      return res.status(401).json({ error: 'Purchase Manager authentication required' });
     }
 
     if (!componentId) {
@@ -827,10 +827,10 @@ exports.rejectVendorComponent = async (req, res) => {
   try {
     const { componentId } = req.params;
     const { rejectionReason } = req.body;
-    const isAdmin = req.user?.type === 'admin';
+    const isPurchaseManager = req.user?.type === 'purchase_manager';
 
-    if (!isAdmin) {
-      return res.status(401).json({ error: 'Admin authentication required' });
+    if (!isPurchaseManager) {
+      return res.status(401).json({ error: 'Purchase Manager authentication required' });
     }
 
     if (!componentId) {
@@ -1000,5 +1000,22 @@ exports.getComponentVendors = async (req, res) => {
   } catch (error) {
     console.error("Error fetching component vendors:", error);
     return res.status(500).json({ error: "Failed to fetch vendors" });
+  }
+};
+
+// Purchase Manager: Get all components from components table
+exports.getAllComponents = async (req, res) => {
+  try {
+    const { data: components, error } = await supabase
+      .from('Components')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    res.json({ components: components || [] });
+  } catch (error) {
+    console.error('Error fetching all components:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch components' });
   }
 };

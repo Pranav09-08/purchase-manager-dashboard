@@ -72,6 +72,13 @@ const buildEnquiryIdPrefix = (vendorId) => {
   return `pe_${cleanVendor}_`;
 };
 
+const parseOptionalNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed > 0 ? parsed : null;
+};
+
 const normalizeEnquiryItems = (rawItems = []) => {
   if (!Array.isArray(rawItems)) return [];
 
@@ -81,14 +88,24 @@ const normalizeEnquiryItems = (rawItems = []) => {
       const quantity = Number(item.quantity);
       const unit = item.unit || null;
       const specifications = item.specifications || item.specification || null;
+      const component_name = item.component_name || item.name || null;
+      const estimated_unit_cost = parseOptionalNumber(item.estimated_unit_cost ?? item.unit_price ?? item.unitPrice);
+      const discount_percent = parseOptionalNumber(item.discount_percent ?? item.discountPercent ?? item.discount);
+      const cgst = parseOptionalNumber(item.cgst_percent ?? item.cgst);
+      const sgst = parseOptionalNumber(item.sgst_percent ?? item.sgst);
 
       if (!component_id || !Number.isFinite(quantity) || quantity <= 0) return null;
 
       return {
         component_id,
+        component_name,
         quantity,
         unit,
         specifications,
+        estimated_unit_cost,
+        discount_percent,
+        cgst,
+        sgst,
       };
     })
     .filter(Boolean);
@@ -127,9 +144,14 @@ const aggregateEnquiriesFromItems = (rows = []) => {
       item_id: row.item_id,
       enquiry_id: row.enquiry_id,
       component_id: row.component_id,
+      component_name: row.component_name || null,
       quantity: row.quantity,
       unit: row.unit || null,
       specifications: row.specifications || null,
+      estimated_unit_cost: parseOptionalNumber(row.estimated_unit_cost),
+      discount_percent: parseOptionalNumber(row.discount_percent),
+      cgst: parseOptionalNumber(row.cgst),
+      sgst: parseOptionalNumber(row.sgst),
       created_at: row.created_at || null,
     });
 
@@ -189,7 +211,7 @@ const mergeParentEnquiries = (itemBasedEnquiries = [], parentRows = []) => {
     existing.required_delivery_date = existing.required_delivery_date || parent.required_delivery_date || null;
     existing.source = existing.source || parent.source || null;
     existing.planning_request_id = existing.planning_request_id || parent.planning_request_id || null;
-    existing.status = existing.status || parent.status || 'pending';
+    existing.status = parent.status ?? existing.status ?? 'pending';
     existing.rejection_reason = existing.rejection_reason || parent.rejection_reason || null;
     existing.created_at = existing.created_at || parent.created_at || null;
     existing.updated_at = existing.updated_at || parent.updated_at || existing.updated_at;
@@ -206,6 +228,10 @@ const mergeParentEnquiries = (itemBasedEnquiries = [], parentRows = []) => {
  */
 exports.createPurchaseEnquiry = async (req, res) => {
   try {
+    console.log('ENQUIRY Controller - createPurchaseEnquiry called');
+    console.log('Request URL:', req.originalUrl);
+    console.log('Request body:', req.body);
+    
     const { companyId, vendorId, title, description, notes, items, enquiryItems, requiredDeliveryDate, source, planningRequestId } = req.body;
     const purchaseManagerId = req.user?.vendor_id; // This will be from purchase manager auth
     const normalizedItems = normalizeEnquiryItems(items || enquiryItems);
@@ -254,9 +280,14 @@ exports.createPurchaseEnquiry = async (req, res) => {
       item_id: uuidv4(),
       enquiry_id: enquiryId,
       component_id: item.component_id,
+      component_name: item.component_name || null,
       quantity: item.quantity,
       unit: item.unit || null,
       specifications: item.specifications || null,
+      estimated_unit_cost: item.estimated_unit_cost,
+      discount_percent: item.discount_percent,
+      cgst: item.cgst,
+      sgst: item.sgst,
       vendor_id: vendorId,
       purchase_manager_id: purchaseManagerId,
       title: enquiryTitle,
@@ -433,8 +464,10 @@ exports.updatePurchaseEnquiry = async (req, res) => {
       updateData.rejection_reason = null;
     }
 
-    const { error } = await updateWithColumnFallback('purchase_enquiry_items', 'enquiry_id', enquiryId, updateData);
+    const { error: parentUpdateError } = await updateWithColumnFallback('purchase_enquiry', 'enquiry_id', enquiryId, updateData);
+    if (parentUpdateError) throw parentUpdateError;
 
+    const { error } = await updateWithColumnFallback('purchase_enquiry_items', 'enquiry_id', enquiryId, updateData);
     if (error) throw error;
 
     if (Array.isArray(items)) {
@@ -449,9 +482,14 @@ exports.updatePurchaseEnquiry = async (req, res) => {
           item_id: uuidv4(),
           enquiry_id: enquiryId,
           component_id: item.component_id,
+          component_name: item.component_name || null,
           quantity: item.quantity,
           unit: item.unit || null,
           specifications: item.specifications || null,
+          estimated_unit_cost: item.estimated_unit_cost,
+          discount_percent: item.discount_percent,
+          cgst: item.cgst,
+          sgst: item.sgst,
           vendor_id: currentMeta.vendor_id,
           purchase_manager_id: currentMeta.purchase_manager_id,
           title: title ?? currentMeta.title,
@@ -507,11 +545,16 @@ exports.rejectPurchaseEnquiry = async (req, res) => {
       });
     }
 
-    const { error } = await updateWithColumnFallback('purchase_enquiry_items', 'enquiry_id', enquiryId, {
+    const rejectionUpdate = {
       status: 'rejected',
       rejection_reason: rejectionReason,
       updated_at: new Date().toISOString(),
-    });
+    };
+
+    const { error: parentUpdateError } = await updateWithColumnFallback('purchase_enquiry', 'enquiry_id', enquiryId, rejectionUpdate);
+    if (parentUpdateError) throw parentUpdateError;
+
+    const { error } = await updateWithColumnFallback('purchase_enquiry_items', 'enquiry_id', enquiryId, rejectionUpdate);
 
     if (error) throw error;
 

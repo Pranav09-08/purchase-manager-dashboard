@@ -1,4 +1,4 @@
-// Shared dashboard shell for vendor and admin
+// Shared dashboard shell for vendor and purchase manager
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,8 +37,8 @@ function DashboardLayout({
         localStorage.removeItem('vendor');
         navigate('/login');
       } else {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminUser');
+        localStorage.removeItem('purchaseManagerToken');
+        localStorage.removeItem('purchaseManagerUser');
         navigate('/login');
       }
     } catch (error) {

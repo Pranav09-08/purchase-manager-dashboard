@@ -7,13 +7,13 @@ const supabase = require('../config/supabase');
  */
 exports.createPurchaseOrder = async (req, res) => {
   try {
-    const { loiId, items, expectedDeliveryDate, termsAndConditions } = req.body;
+    const { loiId, items: providedItems, expectedDeliveryDate, termsAndConditions } = req.body;
     const purchaseManagerId = req.user?.vendor_id;
 
     // Validation
-    if (!loiId || !items || items.length === 0) {
+    if (!loiId) {
       return res.status(400).json({
-        error: 'Missing required fields: loiId and items'
+        error: 'Missing required field: loiId'
       });
     }
 
@@ -33,11 +33,47 @@ exports.createPurchaseOrder = async (req, res) => {
 
     const vendorId = loi.vendor_id;
 
+    // If items not provided, fetch from quotation
+    let orderItems = providedItems;
+    if (!orderItems || orderItems.length === 0) {
+      const quotationId = loi.counter_quotation_id || loi.quotation_id;
+      
+      if (!quotationId) {
+        return res.status(400).json({ error: 'No quotation linked to LOI and no items provided' });
+      }
+
+      // Fetch quotation items
+      const { data: quotationItems, error: quotationError } = await supabase
+        .from('purchase_quotation_items')
+        .select('*')
+        .eq('quotation_id', quotationId);
+
+      if (quotationError || !quotationItems || quotationItems.length === 0) {
+        return res.status(400).json({ error: 'No items found in quotation' });
+      }
+
+      // Map quotation items to order items format
+      orderItems = quotationItems.map(item => ({
+        componentId: item.component_id,
+        componentName: item.component_name,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        discountPercent: item.discount_percent || 0,
+        cgstPercent: item.cgst_percent || 0,
+        sgstPercent: item.sgst_percent || 0,
+      }));
+    }
+
+    if (!orderItems || orderItems.length === 0) {
+      return res.status(400).json({ error: 'No items available for order creation' });
+    }
+
     // Calculate totals
     let totalAmount = 0;
-    const itemInserts = items.map((item) => {
-      const discountAmount = (item.lineTotal * (item.discountPercent || 0)) / 100;
-      const discountedPrice = item.lineTotal - discountAmount;
+    const itemInserts = orderItems.map((item, index) => {
+      const baseAmount = (item.quantity || 0) * (item.unitPrice || 0);
+      const discountAmount = (baseAmount * (item.discountPercent || 0)) / 100;
+      const discountedPrice = baseAmount - discountAmount;
       const cgstAmount = (discountedPrice * (item.cgstPercent || 0)) / 100;
       const sgstAmount = (discountedPrice * (item.sgstPercent || 0)) / 100;
       const taxAmount = cgstAmount + sgstAmount;
@@ -45,7 +81,7 @@ exports.createPurchaseOrder = async (req, res) => {
       totalAmount += itemTotal;
 
       return {
-        item_id: `poi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        item_id: `poi_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
         order_id: orderId,
         component_id: item.componentId,
         quantity: item.quantity,

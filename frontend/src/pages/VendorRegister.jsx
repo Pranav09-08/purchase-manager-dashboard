@@ -39,7 +39,7 @@ function VendorRegister() {
     try {
       // Register vendor (no password needed - will be set via email link)
       const { data } = await authApi.register(formData);
-      setMessage(data.message || 'Registration submitted successfully. Check your email to set password. Please wait for admin approval.');
+      setMessage(data.message || 'Registration submitted successfully. Check your email to set password. Please wait for purchase manager approval.');
       setTimeout(() => {
         navigate('/login');
       }, 3000);
@@ -238,7 +238,7 @@ function VendorRegister() {
                 </svg>
                 <div>
                   <h4 className="font-semibold text-blue-900 mb-1">Password Setup</h4>
-                  <p className="text-sm text-blue-800">After registration, you'll receive an email with a link to set your password. Once approved by admin, you can login with your email and password.</p>
+                  <p className="text-sm text-blue-800">After registration, you'll receive an email with a link to set your password. Once approved by the purchase manager, you can login with your email and password.</p>
                 </div>
               </div>
             </div>

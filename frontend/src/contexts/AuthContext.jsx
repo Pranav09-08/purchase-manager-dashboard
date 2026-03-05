@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState(null);
-  const [userRole, setUserRole] = useState(null); // 'admin' or 'vendor'
+  const [userRole, setUserRole] = useState(null); // 'purchase_manager' or 'vendor'
   const refreshIntervalRef = useRef(null);
 
   // Get fresh ID token
@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  // Sign in with custom token (admins)
+  // Sign in with custom token (purchase managers)
   const loginWithCustomToken = (customToken) => {
     return signInWithCustomToken(auth, customToken);
   };
@@ -98,9 +98,9 @@ export function AuthProvider({ children }) {
               setIdToken(token);
               console.log('🔑 ID token obtained');
 
-              // Role detection: check localStorage for adminUser or vendor
-              if (localStorage.getItem('adminUser')) {
-                setUserRole('admin');
+              // Role detection: check localStorage for purchaseManagerUser or vendor
+              if (localStorage.getItem('purchaseManagerUser')) {
+                setUserRole('purchase_manager');
               } else if (localStorage.getItem('vendor')) {
                 setUserRole('vendor');
               } else {

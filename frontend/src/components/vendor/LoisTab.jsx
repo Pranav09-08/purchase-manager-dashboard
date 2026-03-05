@@ -17,11 +17,11 @@ function LoisTab({
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('date_desc');
   const getNextStep = (status) => {
-    if (status === 'sent') return 'Review and respond to the LOI.';
-    if (status === 'accepted') return 'Waiting for purchase manager to generate the order.';
-    if (status === 'rejected') return 'No further action required.';
-    if (status === 'confirmed') return 'Order is generated and in progress.';
-    return 'Status in progress.';
+    if (status === 'sent') return 'Review and accept or reject the LOI.';
+    if (status === 'accepted') return 'Waiting for PM to generate purchase order.';
+    if (status === 'rejected') return 'LOI rejected. No further action required.';
+    if (status === 'confirmed') return 'Purchase order generated. Submit invoice.';
+    return 'LOI status in progress.';
   };
   const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
@@ -66,7 +66,7 @@ function LoisTab({
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
         <h2 className="text-2xl font-semibold text-slate-900">Letters of Intent</h2>
-        <p className="text-sm text-slate-500">Review and respond to LOIs from the purchase manager.</p>
+        <p className="text-sm text-slate-500">Review and respond to LOIs from the purchase manager. After acceptance, the PM will generate a purchase order.</p>
       </div>
 
       {focusId && (

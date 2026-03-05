@@ -4,7 +4,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import VendorRegister from './pages/VendorRegister';
-import AdminDashboard from './components/admin/AdminDashboard';
+import PurchaseManagerDashboard from './components/purchase_manager/PurchaseManagerDashboard';
 import VendorDashboard from './components/vendor/VendorDashboard';
 import ProtectedRoute from './ProtectedRoute';
 
@@ -16,89 +16,92 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/vendor/register" element={<VendorRegister />} />
 
-        {/* Admin Dashboard Routes (Protected) */}
-        <Route path="/admin/dashboard" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard />
+        {/* Redirect old routes to purchase-manager routes for backward compatibility */}
+        <Route path="/admin/*" element={<Navigate to={location => location.pathname.replace('/admin/', '/purchase-manager/')} replace />} />
+
+        {/* Purchase Manager Dashboard Routes (Protected) */}
+        <Route path="/purchase-manager/dashboard" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/overview" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="overview" />
+        <Route path="/purchase-manager/dashboard/overview" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="overview" />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/products" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="products" />
+        <Route path="/purchase-manager/dashboard/products" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="products" />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/components" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="components" />
+        <Route path="/purchase-manager/dashboard/components" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="components" />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/registrations" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="registrations" />
+        <Route path="/purchase-manager/dashboard/registrations" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="registrations" />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/vendor-products" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="vendor-products" />
+        <Route path="/purchase-manager/dashboard/vendor-products" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="vendor-products" />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/purchase-enquiries" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="purchase-enquiries" />
+        <Route path="/purchase-manager/dashboard/purchase-enquiries" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="purchase-enquiries" />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/purchase-quotations" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="purchase-quotations" />
+        <Route path="/purchase-manager/dashboard/purchase-quotations" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="purchase-quotations" />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/purchase-lois" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="purchase-lois" />
+        <Route path="/purchase-manager/dashboard/purchase-lois" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="purchase-lois" />
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/dashboard/purchase-orders" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="purchase-orders" />
+        <Route path="/purchase-manager/dashboard/purchase-orders" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="purchase-orders" />
           </ProtectedRoute>
         } />
-        <Route path="/admin/dashboard/purchase-payments" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="purchase-payments" />
+        <Route path="/purchase-manager/dashboard/purchase-payments" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="purchase-payments" />
           </ProtectedRoute>
         } />
-        <Route path="/admin/dashboard/payment-receipts" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="payment-receipts" />
+        <Route path="/purchase-manager/dashboard/payment-receipts" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="payment-receipts" />
           </ProtectedRoute>
         } />
-        <Route path="/admin/dashboard/vendor-invoices" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="vendor-invoices" />
+        <Route path="/purchase-manager/dashboard/vendor-invoices" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="vendor-invoices" />
           </ProtectedRoute>
         } />
-        <Route path="/admin/dashboard/analytics" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="analytics" />
+        <Route path="/purchase-manager/dashboard/analytics" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="analytics" />
           </ProtectedRoute>
         } />
-        <Route path="/admin/dashboard/purchase-requests" element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboard currentPage="purchase-requests" />
+        <Route path="/purchase-manager/dashboard/purchase-requests" element={
+          <ProtectedRoute requiredRole="purchase_manager">
+            <PurchaseManagerDashboard currentPage="purchase-requests" />
           </ProtectedRoute>
         } />
         

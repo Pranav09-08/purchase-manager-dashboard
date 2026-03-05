@@ -110,7 +110,7 @@ exports.registerVendor = async (req, res) => {
     }
 
     res.status(201).json({
-      message: 'Registration submitted successfully. Check your email to set password and wait for admin approval.',
+      message: 'Registration submitted successfully. Check your email to set password and wait for purchase manager approval.',
       vendor_id: vendorId,
     });
   } catch (error) {
@@ -118,7 +118,7 @@ exports.registerVendor = async (req, res) => {
   }
 };
 
-// Unified Login - Auto-detects Vendor or Admin
+// Unified Login - Auto-detects Vendor or Purchase Manager
 exports.loginVendor = async (req, res) => {
   try {
     const { contact_email, email, password } = req.body;
@@ -140,7 +140,7 @@ exports.loginVendor = async (req, res) => {
       // Check if approved
       if (vendor.status !== 'approved') {
         return res.status(403).json({
-          error: `Your registration is ${vendor.status}. Please wait for admin approval.`,
+          error: `Your registration is ${vendor.status}. Please wait for purchase manager approval.`,
         });
       }
 
@@ -205,19 +205,19 @@ exports.loginVendor = async (req, res) => {
       });
     }
 
-    // Step 2: Check if user is an ADMIN
-    const { data: admin, error: adminError } = await supabase
+    // Step 2: Check if user is a PURCHASE MANAGER
+    const { data: purchaseManager, error: purchaseManagerError } = await supabase
       .from('purchaseManager')
       .select('*')
       .eq('email', userEmail)
       .maybeSingle();
 
-    if (admin) {
-      // ADMIN LOGIN FLOW
-      // Check if admin is active
-      if (admin.status !== 'active') {
+    if (purchaseManager) {
+      // PURCHASE MANAGER LOGIN FLOW
+      // Check if purchase manager is active
+      if (purchaseManager.status !== 'active') {
         return res.status(403).json({
-          error: `Admin account is ${admin.status}. Please contact support.`,
+          error: `Purchase Manager account is ${purchaseManager.status}. Please contact support.`,
         });
       }
 
@@ -231,19 +231,19 @@ exports.loginVendor = async (req, res) => {
       }
 
       // Sync Firebase UID if not already stored
-      if (!admin.firebase_uid || admin.firebase_uid !== firebaseUser.uid) {
+      if (!purchaseManager.firebase_uid || purchaseManager.firebase_uid !== firebaseUser.uid) {
         await supabase
           .from('purchaseManager')
           .update({ firebase_uid: firebaseUser.uid })
-          .eq('purchaseManagerId', admin.purchaseManagerId);
+          .eq('purchaseManagerId', purchaseManager.purchaseManagerId);
       }
 
-      // Set custom claims for admin
+      // Set custom claims for purchase manager
       await firebaseAuthUtils.setCustomClaims(firebaseUser.uid, {
-        admin: true,
-        purchaseManagerId: admin.purchaseManagerId,
-        email: admin.email,
-        status: admin.status,
+        purchase_manager: true,
+        purchaseManagerId: purchaseManager.purchaseManagerId,
+        email: purchaseManager.email,
+        status: purchaseManager.status,
       });
 
       // Get fresh ID token that includes the custom claims
@@ -259,33 +259,33 @@ exports.loginVendor = async (req, res) => {
 
       // Generate Firebase Custom Token
       const customToken = await firebaseAuthUtils.createCustomToken(firebaseUser.uid, {
-        admin: true,
-        purchaseManagerId: admin.purchaseManagerId,
-        email: admin.email,
-        status: admin.status,
+        purchase_manager: true,
+        purchaseManagerId: purchaseManager.purchaseManagerId,
+        email: purchaseManager.email,
+        status: purchaseManager.status,
       });
 
       // Update last login
       await supabase
         .from('purchaseManager')
         .update({ last_login: new Date().toISOString() })
-        .eq('purchaseManagerId', admin.purchaseManagerId);
+        .eq('purchaseManagerId', purchaseManager.purchaseManagerId);
 
       return res.json({
         message: 'Login successful',
-        userType: 'admin',
+        userType: 'purchase_manager',
         customToken,
         idToken: freshIdToken,
-        admin: {
-          purchaseManagerId: admin.purchaseManagerId,
-          email: admin.email,
-          name: admin.name,
-          phone: admin.phone,
-          companyId: admin.companyId,
-          status: admin.status,
-          created_at: admin.created_at,
-          updated_at: admin.updated_at,
-          profile_image: admin.profile_image,
+        purchaseManager: {
+          purchaseManagerId: purchaseManager.purchaseManagerId,
+          email: purchaseManager.email,
+          name: purchaseManager.name,
+          phone: purchaseManager.phone,
+          companyId: purchaseManager.companyId,
+          status: purchaseManager.status,
+          created_at: purchaseManager.created_at,
+          updated_at: purchaseManager.updated_at,
+          profile_image: purchaseManager.profile_image,
           firebase_uid: firebaseUser.uid,
         },
       });
@@ -299,7 +299,7 @@ exports.loginVendor = async (req, res) => {
   }
 };
 
-// Get All Registration Requests (Admin)
+// Get All Registration Requests (Purchase Manager)
 exports.getRegistrationRequests = async (req, res) => {
   try {
     const { status } = req.query;
@@ -343,7 +343,7 @@ exports.getRegistrationRequest = async (req, res) => {
   }
 };
 
-// Approve Registration (Admin)
+// Approve Registration (Purchase Manager)
 exports.approveRegistration = async (req, res) => {
   try {
     const { id } = req.params;
@@ -405,7 +405,7 @@ exports.approveRegistration = async (req, res) => {
   }
 };
 
-// Reject Registration (Admin)
+// Reject Registration (Purchase Manager)
 exports.rejectRegistration = async (req, res) => {
   try {
     const { id } = req.params;
@@ -434,7 +434,7 @@ exports.rejectRegistration = async (req, res) => {
   }
 };
 
-// Update vendor certificate status (Admin)
+// Update vendor certificate status (Purchase Manager)
 exports.updateCertificateStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -468,7 +468,7 @@ exports.updateCertificateStatus = async (req, res) => {
 };
 const canAccessVendorProfile = (reqUser, vendorId) => {
   if (!reqUser || !vendorId) return false;
-  if (reqUser.type === 'admin') return true;
+  if (reqUser.type === 'purchase_manager') return true;
   return reqUser.type === 'vendor' && reqUser.vendor_id === vendorId;
 };
 
@@ -483,7 +483,7 @@ const normalizeVendorProfilePayload = (body = {}) => ({
   updated_at: new Date().toISOString(),
 });
 
-// Get Vendor Profile (vendor self or admin)
+// Get Vendor Profile (vendor self or purchase manager)
 exports.getVendorProfile = async (req, res) => {
   try {
     const { vendorId } = req.params;
@@ -524,7 +524,7 @@ exports.getOwnVendorProfile = async (req, res) => {
   }
 };
 
-// Update Vendor Profile by vendorId (vendor self or admin)
+// Update Vendor Profile by vendorId (vendor self or purchase manager)
 exports.updateVendorProfileById = async (req, res) => {
   try {
     const { vendorId } = req.params;
@@ -586,10 +586,10 @@ exports.authenticateToken = async (req, res, next) => {
     // Verify Firebase ID token
     const decodedToken = await firebaseAuth.verifyIdToken(token);
 
-    // Check if this is an admin or vendor based on custom claims
-    if (decodedToken.admin) {
-      // Admin user - fetch admin details from purchaseManager
-      const { data: admin } = await supabase
+    // Check if this is a purchase manager or vendor based on custom claims
+    if (decodedToken.purchase_manager) {
+      // Purchase Manager user - fetch purchase manager details from purchaseManager
+      const { data: purchaseManager } = await supabase
         .from('purchaseManager')
         .select('*')
         .eq('firebase_uid', decodedToken.uid)
@@ -598,9 +598,9 @@ exports.authenticateToken = async (req, res, next) => {
       req.user = {
         uid: decodedToken.uid,
         email: decodedToken.email,
-        type: 'admin',
-        purchaseManagerId: admin?.purchaseManagerId,
-        name: admin?.name,
+        type: 'purchase_manager',
+        purchaseManagerId: purchaseManager?.purchaseManagerId,
+        name: purchaseManager?.name,
         ...decodedToken,
       };
     } else {
@@ -618,7 +618,7 @@ exports.authenticateToken = async (req, res, next) => {
       // Check if vendor is approved
       if (vendor.status !== 'approved') {
         return res.status(403).json({ 
-          error: `Your account is ${vendor.status}. Please wait for admin approval.` 
+          error: `Your account is ${vendor.status}. Please wait for purchase manager approval.` 
         });
       }
 

@@ -54,18 +54,23 @@ function QuotationsTab({
     }
   }, [counterForm, showCounterErrors]);
   const componentLookup = componentCatalog.reduce((acc, component) => {
-    const componentId = component.componentid || component.id;
+    const componentId = component.componentId || component.componentid || component.component_id || component.id;
     if (!componentId) return acc;
+    // Store with both the original key and string version to handle type mismatches
     acc[componentId] = component;
+    acc[String(componentId)] = component;
     return acc;
   }, {});
 
   const getItemTotals = (item) => {
     const quantity = Number(item.quantity) || 0;
     const unitPrice = Number(item.unitPrice) || 0;
+    const discountPercent = Number(item.discountPercent) || 0;
     const cgstPercent = Number(item.cgstPercent) || 0;
     const sgstPercent = Number(item.sgstPercent) || 0;
-    const subtotal = quantity * unitPrice;
+    const baseAmount = quantity * unitPrice;
+    const discountAmount = (baseAmount * discountPercent) / 100;
+    const subtotal = baseAmount - discountAmount;
     const cgstAmount = (subtotal * cgstPercent) / 100;
     const sgstAmount = (subtotal * sgstPercent) / 100;
     return {
@@ -181,6 +186,9 @@ function QuotationsTab({
   const counterEligibleQuotations = quotations.filter((quotation) => (
     ['sent', 'negotiating'].includes(quotation.status)
   ));
+  const quotationEligibleEnquiries = enquiries.filter((enquiry) => (
+    ['raised', 'pending', 'new', 'accepted'].includes(enquiry.status || 'new')
+  ));
 
   return (
     <div className="space-y-6">
@@ -246,7 +254,7 @@ function QuotationsTab({
               required
             >
               <option value="">Select enquiry</option>
-              {enquiries.map((enquiry) => (
+              {quotationEligibleEnquiries.map((enquiry) => (
                 <option key={enquiry.enquiry_id} value={enquiry.enquiry_id}>
                   {enquiry.title}
                 </option>
@@ -338,14 +346,9 @@ function QuotationsTab({
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1">Qty</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => onQuotationItemChange(index, 'quantity', e.target.value)}
-                          className={`w-full px-2 py-1.5 border rounded-md ${showQuotationErrors && isQuantityInvalid(item.quantity) ? 'border-rose-500' : 'border-slate-300'}`}
-                          required
-                        />
+                        <div className="w-full px-2 py-1.5 border rounded-md bg-slate-50 text-sm text-slate-700">
+                          {item.quantity || 0}
+                        </div>
                         {showQuotationErrors && isQuantityInvalid(item.quantity) && (
                           <p className="mt-1 text-xs text-rose-600">Qty is required.</p>
                         )}
@@ -413,6 +416,9 @@ function QuotationsTab({
                         </div>
                       </div>
                       <div className="md:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-slate-600">
+                        <div className="px-3 py-2 border rounded-md bg-slate-50 md:col-span-3">
+                          Spec: {item.specifications || '—'}
+                        </div>
                         <div className="px-3 py-2 border rounded-md bg-slate-50">
                           CGST: ₹{totals.cgstAmount.toFixed(2)}
                         </div>
@@ -422,15 +428,6 @@ function QuotationsTab({
                         <div className="px-3 py-2 border rounded-md bg-slate-100 font-semibold text-slate-900">
                           Total: ₹{totals.total.toFixed(2)}
                         </div>
-                      </div>
-                      <div className="md:col-span-8 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => onQuotationItemRemove(index)}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 text-white"
-                        >
-                          Remove
-                        </button>
                       </div>
                     </div>
                   );
@@ -591,7 +588,7 @@ function QuotationsTab({
                         >
                           <option value="">Select component</option>
                           {componentCatalog.map((componentOption) => {
-                            const componentId = componentOption.componentid || componentOption.id;
+                            const componentId = componentOption.componentId || componentOption.componentid || componentOption.component_id || componentOption.id;
                             return (
                               <option key={componentId} value={componentId}>
                                 {componentOption.component_name || componentOption.name}
@@ -891,11 +888,12 @@ function QuotationsTab({
                       </thead>
                       <tbody>
                         {selectedQuotation.items.map((item) => {
-                          const component = componentLookup[item.component_id] || {};
+                          const component = componentLookup[item.component_id] || componentLookup[String(item.component_id)] || {};
+                          const componentName = item.component_name || item.name || component.component_name || component.name || item.component_id || 'Component';
                           return (
                             <tr key={item.item_id} className="border-b border-slate-100">
                               <td className="py-2 text-slate-700">
-                                {component.component_name || component.name || 'Component'}
+                                {componentName}
                               </td>
                               <td className="py-2 text-right text-slate-700">{item.quantity}</td>
                               <td className="py-2 text-right text-slate-700">₹{item.unit_price}</td>
@@ -994,9 +992,12 @@ function QuotationsTab({
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedCounter.items.map((item) => (
+                        {selectedCounter.items.map((item) => {
+                          const component = componentLookup[item.component_id] || componentLookup[String(item.component_id)] || {};
+                          const componentName = item.component_name || item.name || component.component_name || component.name || item.component_id || 'Component';
+                          return (
                           <tr key={item.item_id} className="border-b border-slate-100">
-                            <td className="py-2 text-slate-700">{componentLookup[item.component_id]?.component_name || item.component_id}</td>
+                            <td className="py-2 text-slate-700">{componentName}</td>
                             <td className="py-2 text-right text-slate-700">{item.quantity}</td>
                             <td className="py-2 text-right text-slate-700">₹{item.unit_price}</td>
                             <td className="py-2 text-right text-slate-700">{item.discount_percent || 0}%</td>
@@ -1004,7 +1005,8 @@ function QuotationsTab({
                             <td className="py-2 text-right text-slate-700">{item.sgst_percent || 0}%</td>
                             <td className="py-2 text-right font-semibold text-slate-900">₹{item.line_total}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

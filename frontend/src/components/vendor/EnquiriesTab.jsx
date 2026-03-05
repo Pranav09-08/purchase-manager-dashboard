@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import apiClient from '../../api/apiClient';
 
 // Vendor enquiries list
@@ -16,6 +16,7 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectLoading, setRejectLoading] = useState(false);
+  const [acceptLoading, setAcceptLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -30,8 +31,25 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
     requiredDeliveryDate: '',
   });
   const seenSet = new Set(seenEnquiryIds);
+  const resolveEnquiryId = (enquiry) => enquiry.enquiry_id || enquiry.enquiryId || enquiry.id;
+  const resolveEnquiryTitle = (enquiry) => (
+    enquiry.title
+    || enquiry.enquiry_title
+    || enquiry.subject
+    || `Enquiry ${resolveEnquiryId(enquiry) || ''}`
+  );
+  const resolveRequiredDeliveryDate = (enquiry) => (
+    enquiry.required_delivery_date
+    || enquiry.requiredDeliveryDate
+    || enquiry.delivery_date
+    || null
+  );
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
   const resolveComponentId = (item) => item.component_id || item.componentId || item.componentid;
+  const resolveEnquiryNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
   const resolveComponentName = (item, component) => (
     item.component_name
     || item.name
@@ -46,12 +64,25 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
     ?? component?.[key]
     ?? 0
   );
+  const resolveDiscount = (item) => (
+    Number(item.discount_percent || item.discount || item.discountPercent || 0) || 0
+  );
   const componentLookup = componentCatalog.reduce((acc, component) => {
-    const componentId = component.componentid || component.component_id || component.id;
+    const componentId = component.componentId || component.componentid || component.component_id || component.id;
     if (!componentId || acc[componentId]) return acc;
     acc[componentId] = component;
+    acc[String(componentId)] = component;
     return acc;
   }, {});
+  const getComponentFromLookup = (item) => {
+    const componentId = resolveComponentId(item);
+    if (!componentId) return {};
+    return (
+      componentLookup[componentId]
+      || componentLookup[String(componentId)]
+      || {}
+    );
+  };
   const getStatusLabel = (status) => {
     if (status === 'raised') return 'Raised';
     if (status === 'quoted') return 'Quoted';
@@ -66,8 +97,9 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
     if (status === 'rejected') return 'bg-rose-100 text-rose-700';
     return 'bg-slate-100 text-slate-700';
   };
+  const isPendingEnquiryStatus = (status) => ['raised', 'pending', 'new'].includes(status || 'new');
   const filteredEnquiries = enquiries.filter((enquiry) => {
-    const title = (enquiry.title || '').toLowerCase();
+    const title = (resolveEnquiryTitle(enquiry) || '').toLowerCase();
     const description = (enquiry.description || '').toLowerCase();
     const matchesSearch =
       title.includes(enquirySearch.toLowerCase()) ||
@@ -75,7 +107,101 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
     const matchesStatus = statusFilter === 'all' || enquiry.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-  const unreadCount = filteredEnquiries.filter((enquiry) => !seenSet.has(enquiry.enquiry_id)).length;
+  const unreadCount = filteredEnquiries.filter((enquiry) => !seenSet.has(resolveEnquiryId(enquiry))).length;
+  const selectedEnquiryTotals = (selectedEnquiry?.items || []).reduce((acc, item) => {
+    const component = getComponentFromLookup(item);
+
+    const rawBasePrice = item.estimated_unit_cost
+      ?? item.unit_price
+      ?? item.unitPrice
+      ?? component.price_per_unit
+      ?? component.unit_price
+      ?? component.cost_per_unit;
+    const hasBasePrice = rawBasePrice !== null && rawBasePrice !== undefined && rawBasePrice !== '';
+    const basePrice = hasBasePrice ? resolveEnquiryNumber(rawBasePrice, 0) : 0;
+
+    const rawDiscount = item.discount_percent
+      ?? item.discount
+      ?? item.discountPercent
+      ?? component.discount_percent
+      ?? component.discountPercent
+      ?? component.discount;
+    const discount = rawDiscount !== null && rawDiscount !== undefined && rawDiscount !== ''
+      ? resolveEnquiryNumber(rawDiscount, 0)
+      : 0;
+
+    const rawCgst = item.cgst
+      ?? item.cgst_percent
+      ?? item.cgstPercent
+      ?? component.cgst
+      ?? component.cgst_percent;
+    const cgst = rawCgst !== null && rawCgst !== undefined && rawCgst !== ''
+      ? resolveEnquiryNumber(rawCgst, 0)
+      : 0;
+
+    const rawSgst = item.sgst
+      ?? item.sgst_percent
+      ?? item.sgstPercent
+      ?? component.sgst
+      ?? component.sgst_percent;
+    const sgst = rawSgst !== null && rawSgst !== undefined && rawSgst !== ''
+      ? resolveEnquiryNumber(rawSgst, 0)
+      : 0;
+
+    const qty = resolveEnquiryNumber(item.quantity, 0);
+    const baseSubtotal = hasBasePrice ? basePrice * qty : 0;
+    const discountAmount = (baseSubtotal * discount) / 100;
+    const taxableSubtotal = baseSubtotal - discountAmount;
+    const cgstAmount = (taxableSubtotal * cgst) / 100;
+    const sgstAmount = (taxableSubtotal * sgst) / 100;
+    const grandTotal = taxableSubtotal + cgstAmount + sgstAmount;
+
+    return {
+      baseSubtotal: acc.baseSubtotal + baseSubtotal,
+      discountAmount: acc.discountAmount + discountAmount,
+      taxableSubtotal: acc.taxableSubtotal + taxableSubtotal,
+      cgstAmount: acc.cgstAmount + cgstAmount,
+      sgstAmount: acc.sgstAmount + sgstAmount,
+      grandTotal: acc.grandTotal + grandTotal,
+    };
+  }, {
+    baseSubtotal: 0,
+    discountAmount: 0,
+    taxableSubtotal: 0,
+    cgstAmount: 0,
+    sgstAmount: 0,
+    grandTotal: 0,
+  });
+  const selectedEnquiryDiscountPercent = selectedEnquiryTotals.baseSubtotal > 0
+    ? (selectedEnquiryTotals.discountAmount / selectedEnquiryTotals.baseSubtotal) * 100
+    : 0;
+  const selectedEnquiryCgstPercent = selectedEnquiryTotals.taxableSubtotal > 0
+    ? (selectedEnquiryTotals.cgstAmount / selectedEnquiryTotals.taxableSubtotal) * 100
+    : 0;
+  const selectedEnquirySgstPercent = selectedEnquiryTotals.taxableSubtotal > 0
+    ? (selectedEnquiryTotals.sgstAmount / selectedEnquiryTotals.taxableSubtotal) * 100
+    : 0;
+  useEffect(() => {
+    if (!selectedEnquiry) return;
+    const loggedItems = (selectedEnquiry.items || []).map((item) => ({
+      item_id: item.item_id,
+      enquiry_id: item.enquiry_id,
+      component_id: item.component_id || item.componentId || item.componentid || null,
+      component_name: item.component_name || item.name || null,
+      quantity: item.quantity ?? null,
+      unit: item.unit ?? null,
+      specifications: item.specifications || item.specification || null,
+      estimated_unit_cost: item.estimated_unit_cost ?? item.unit_price ?? item.unitPrice ?? null,
+      discount_percent: item.discount_percent ?? item.discount ?? item.discountPercent ?? null,
+      cgst: item.cgst ?? item.cgst_percent ?? item.cgstPercent ?? null,
+      sgst: item.sgst ?? item.sgst_percent ?? item.sgstPercent ?? null,
+      created_at: item.created_at || null,
+    }));
+    console.log('Vendor enquiry details', {
+      enquiry: selectedEnquiry,
+      items: loggedItems,
+    });
+  }, [selectedEnquiry]);
   const markEnquirySeen = (enquiryId) => {
     if (!enquiryId || seenSet.has(enquiryId)) return;
     const next = [...seenEnquiryIds, enquiryId];
@@ -90,7 +216,7 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
     setRejectLoading(true);
     try {
       const { data } = await apiClient.put(
-        `/purchase-enquiry/${selectedEnquiry.enquiry_id}/reject`,
+        `/purchase-enquiry/${resolveEnquiryId(selectedEnquiry)}/reject`,
         { rejectionReason: rejectionReason.trim() }
       );
       
@@ -107,6 +233,28 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
       alert(err.response?.data?.error || err.message || 'Error rejecting enquiry');
     } finally {
       setRejectLoading(false);
+    }
+  };
+
+  const handleAcceptEnquiry = async () => {
+    if (!selectedEnquiry) return;
+    setAcceptLoading(true);
+    try {
+      const { data } = await apiClient.patch(
+        `/purchase-enquiry/${resolveEnquiryId(selectedEnquiry)}`,
+        { status: 'accepted' }
+      );
+
+      if (onEnquiryCreated) {
+        onEnquiryCreated(data.enquiry);
+      }
+
+      setSelectedEnquiry((prev) => prev ? { ...prev, status: 'accepted' } : prev);
+      alert('Enquiry accepted successfully');
+    } catch (err) {
+      alert(err.response?.data?.error || err.message || 'Error accepting enquiry');
+    } finally {
+      setAcceptLoading(false);
     }
   };
 
@@ -217,6 +365,7 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
           >
             <option value="all">All Enquiries</option>
             <option value="raised">Raised</option>
+            <option value="accepted">Accepted</option>
             <option value="quoted">Quoted</option>
             <option value="rejected">Rejected</option>
           </select>
@@ -235,9 +384,9 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
             {filteredEnquiries.map((enquiry) => (
               <button
                 type="button"
-                key={enquiry.enquiry_id}
+                key={resolveEnquiryId(enquiry)}
                 onClick={() => {
-                  markEnquirySeen(enquiry.enquiry_id);
+                  markEnquirySeen(resolveEnquiryId(enquiry));
                   setSelectedEnquiry(enquiry);
                 }}
                 className="w-full text-left rounded-xl border border-slate-200 px-4 py-3 hover:border-slate-400 hover:shadow-md hover:bg-slate-50 transition"
@@ -245,14 +394,14 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">
-                      {enquiry.title || 'Untitled Enquiry'}
+                      {resolveEnquiryTitle(enquiry)}
                     </p>
                     <p className="text-xs text-slate-500 line-clamp-2">
                       {enquiry.description || 'No description'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {!seenSet.has(enquiry.enquiry_id) && (
+                    {!seenSet.has(resolveEnquiryId(enquiry)) && (
                       <span className="px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700">
                         Unread
                       </span>
@@ -263,7 +412,7 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                  <span>Required: {formatDate(enquiry.required_delivery_date)}</span>
+                  <span>Required: {formatDate(resolveRequiredDeliveryDate(enquiry))}</span>
                   <span>Created: {formatDate(enquiry.created_at)}</span>
                 </div>
               </button>
@@ -292,9 +441,9 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold text-slate-900">
-                      {selectedEnquiry.title || 'Untitled Enquiry'}
+                      {resolveEnquiryTitle(selectedEnquiry)}
                     </h3>
-                    <p className="text-sm text-slate-500 mt-1">ID: {selectedEnquiry.enquiry_id || selectedEnquiry.id}</p>
+                    <p className="text-sm text-slate-500 mt-1">ID: {resolveEnquiryId(selectedEnquiry) || '—'}</p>
                   </div>
                   <span className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap ${getStatusColor(selectedEnquiry.status)}`}>
                     {getStatusLabel(selectedEnquiry.status)}
@@ -313,7 +462,7 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Required Delivery Date</label>
-                    <p className="text-sm text-slate-900">{formatDate(selectedEnquiry.required_delivery_date)}</p>
+                    <p className="text-sm text-slate-900">{formatDate(resolveRequiredDeliveryDate(selectedEnquiry))}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Source</label>
@@ -328,45 +477,132 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
                 <div>
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">Line Items</h4>
                   {selectedEnquiry.items?.length ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full min-w-[1000px] text-sm">
-                        <thead className="text-xs uppercase text-slate-500">
-                          <tr className="border-b border-slate-200">
-                            <th className="py-2 text-left font-semibold">Component</th>
-                            <th className="py-2 text-right font-semibold">Qty</th>
-                            <th className="py-2 text-right font-semibold">Unit</th>
-                            <th className="py-2 text-right font-semibold">Base Price</th>
-                            <th className="py-2 text-right font-semibold">CGST %</th>
-                            <th className="py-2 text-right font-semibold">SGST %</th>
-                            <th className="py-2 text-right font-semibold">Final Price</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedEnquiry.items.map((item) => {
-                            const component = componentLookup[resolveComponentId(item)] || {};
-                            const cgst = resolveGst(item, component, 'cgst');
-                            const sgst = resolveGst(item, component, 'sgst');
-                            const basePrice = Number(component.price_per_unit) || 0;
-                            const cgstAmount = (basePrice * cgst) / 100;
-                            const sgstAmount = (basePrice * sgst) / 100;
-                            const finalPrice = basePrice + cgstAmount + sgstAmount;
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full min-w-[1000px] text-sm">
+                          <thead className="text-xs uppercase text-slate-500">
+                            <tr className="border-b border-slate-200">
+                              <th className="py-2 text-left font-semibold">Component</th>
+                              <th className="py-2 text-left font-semibold">Specifications</th>
+                              <th className="py-2 text-right font-semibold">Qty</th>
+                              <th className="py-2 text-right font-semibold">Unit</th>
+                              <th className="py-2 text-right font-semibold">Base Price</th>
+                              <th className="py-2 text-right font-semibold">Disc %</th>
+                              <th className="py-2 text-right font-semibold">CGST %</th>
+                              <th className="py-2 text-right font-semibold">SGST %</th>
+                              <th className="py-2 text-right font-semibold">Final Price</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedEnquiry.items.map((item) => {
+                            const component = getComponentFromLookup(item);
+                            const resolvedUnit = item.unit
+                              || component.unit_of_measurement
+                              || component.measurement_unit
+                              || component.unit
+                              || null;
+                            const hasUnit = resolvedUnit !== null && resolvedUnit !== undefined && String(resolvedUnit).trim() !== '';
+                            const rawBasePrice = item.estimated_unit_cost
+                              ?? item.unit_price
+                              ?? item.unitPrice
+                              ?? component.price_per_unit
+                              ?? component.unit_price
+                              ?? component.cost_per_unit;
+                            const hasBasePrice = rawBasePrice !== null && rawBasePrice !== undefined && rawBasePrice !== '';
+                            const basePrice = hasBasePrice ? resolveEnquiryNumber(rawBasePrice, 0) : null;
+                            const rawDiscount = item.discount_percent
+                              ?? item.discount
+                              ?? item.discountPercent
+                              ?? component.discount_percent
+                              ?? component.discountPercent
+                              ?? component.discount;
+                            const hasDiscount = rawDiscount !== null && rawDiscount !== undefined && rawDiscount !== '';
+                            const discount = hasDiscount ? resolveEnquiryNumber(rawDiscount, 0) : 0;
+                            const rawCgst = item.cgst
+                              ?? item.cgst_percent
+                              ?? item.cgstPercent
+                              ?? component.cgst
+                              ?? component.cgst_percent;
+                            const hasCgst = rawCgst !== null && rawCgst !== undefined && rawCgst !== '';
+                            const cgst = hasCgst ? resolveEnquiryNumber(rawCgst, 0) : 0;
+                            const rawSgst = item.sgst
+                              ?? item.sgst_percent
+                              ?? item.sgstPercent
+                              ?? component.sgst
+                              ?? component.sgst_percent;
+                            const hasSgst = rawSgst !== null && rawSgst !== undefined && rawSgst !== '';
+                            const sgst = hasSgst ? resolveEnquiryNumber(rawSgst, 0) : 0;
+                            const specifications = item.specifications || item.specification || '—';
+                            const discountedPrice = hasBasePrice ? basePrice - ((basePrice * discount) / 100) : 0;
+                            const totalTaxPercent = Number(cgst) + Number(sgst);
+                            const finalPrice = hasBasePrice ? discountedPrice + ((discountedPrice * totalTaxPercent) / 100) : 0;
+                            const qty = resolveEnquiryNumber(item.quantity, 0);
+                            const baseSubtotal = hasBasePrice ? basePrice * qty : 0;
+                            const discountAmount = (baseSubtotal * discount) / 100;
+                            const taxableSubtotal = baseSubtotal - discountAmount;
+                            const cgstAmount = (taxableSubtotal * cgst) / 100;
+                            const sgstAmount = (taxableSubtotal * sgst) / 100;
+                            const total = hasBasePrice ? finalPrice * qty : null;
                             return (
-                              <tr key={item.item_id || item.component_id} className="border-b border-slate-100">
+                              <tr key={item.item_id || resolveComponentId(item)} className="border-b border-slate-100">
                                 <td className="py-2 text-slate-700">{resolveComponentName(item, component)}</td>
-                                <td className="py-2 text-right text-slate-700">{item.quantity}</td>
+                                <td className="py-2 text-slate-700">{specifications}</td>
+                                <td className="py-2 text-right text-slate-700">{qty}</td>
                                 <td className="py-2 text-right text-slate-700">
-                                  {item.unit || component.unit_of_measurement || component.measurement_unit || component.unit || '—'}
+                                  {hasUnit ? resolvedUnit : '—'}
                                 </td>
-                                <td className="py-2 text-right text-slate-700">₹{basePrice.toFixed(2)}</td>
-                                <td className="py-2 text-right text-slate-700">{cgst}%</td>
-                                <td className="py-2 text-right text-slate-700">{sgst}%</td>
-                                <td className="py-2 text-right font-semibold text-emerald-700">₹{finalPrice.toFixed(2)}</td>
+                                <td className="py-2 text-right text-slate-700">{hasBasePrice ? `₹${basePrice.toFixed(2)}` : '—'}</td>
+                                <td className="py-2 text-right text-slate-700">
+                                  <div className="flex flex-col items-end">
+                                    <span>{hasDiscount ? `${discount}%` : '—'}</span>
+                                    <span className="text-[11px] font-semibold text-amber-700">{hasBasePrice ? `₹${discountAmount.toFixed(2)}` : '—'}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2 text-right text-slate-700">
+                                  <div className="flex flex-col items-end">
+                                    <span>{hasCgst ? `${cgst}%` : '—'}</span>
+                                    <span className="text-[11px] font-semibold text-blue-700">{hasBasePrice ? `₹${cgstAmount.toFixed(2)}` : '—'}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2 text-right text-slate-700">
+                                  <div className="flex flex-col items-end">
+                                    <span>{hasSgst ? `${sgst}%` : '—'}</span>
+                                    <span className="text-[11px] font-semibold text-indigo-700">{hasBasePrice ? `₹${sgstAmount.toFixed(2)}` : '—'}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2 text-right font-semibold text-emerald-700">{total !== null ? `₹${total.toFixed(2)}` : '—'}</td>
                               </tr>
                             );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="mt-4 bg-white border-2 border-slate-300 rounded-lg p-4 space-y-4">
+                        <h4 className="text-base font-semibold text-slate-900">Final Summary</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                          <div className="p-3 rounded-md border border-slate-200 bg-slate-50">
+                            <p className="text-xs font-semibold text-slate-600">Total Base Price</p>
+                            <p className="text-lg font-bold text-slate-900 mt-1">₹{selectedEnquiryTotals.baseSubtotal.toFixed(2)}</p>
+                          </div>
+                          <div className="p-3 rounded-md border border-slate-200 bg-amber-50">
+                            <p className="text-xs font-semibold text-amber-700">Discount Applied ({selectedEnquiryDiscountPercent.toFixed(2)}%)</p>
+                            <p className="text-lg font-bold text-amber-900 mt-1">-₹{selectedEnquiryTotals.discountAmount.toFixed(2)}</p>
+                          </div>
+                          <div className="p-3 rounded-md border border-slate-200 bg-blue-50">
+                            <p className="text-xs font-semibold text-blue-700">CGST Applied ({selectedEnquiryCgstPercent.toFixed(2)}%)</p>
+                            <p className="text-lg font-bold text-blue-900 mt-1">₹{selectedEnquiryTotals.cgstAmount.toFixed(2)}</p>
+                          </div>
+                          <div className="p-3 rounded-md border border-slate-200 bg-indigo-50">
+                            <p className="text-xs font-semibold text-indigo-700">SGST Applied ({selectedEnquirySgstPercent.toFixed(2)}%)</p>
+                            <p className="text-lg font-bold text-indigo-900 mt-1">₹{selectedEnquiryTotals.sgstAmount.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-md">
+                          <p className="text-sm font-semibold text-emerald-700">Total Price</p>
+                          <p className="text-2xl font-bold text-emerald-900 mt-1">₹{selectedEnquiryTotals.grandTotal.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <p className="text-sm text-slate-500">No line items.</p>
                   )}
@@ -388,7 +624,7 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
               >
                 Close
               </button>
-              {selectedEnquiry.status !== 'rejected' && (
+              {isPendingEnquiryStatus(selectedEnquiry.status) && (
                 <button
                   onClick={() => {
                     setShowRejectModal(true);
@@ -398,7 +634,16 @@ function EnquiriesTab({ enquiries = [], componentCatalog = [], onCreateQuotation
                   Reject
                 </button>
               )}
-              {selectedEnquiry.status !== 'rejected' && (
+              {isPendingEnquiryStatus(selectedEnquiry.status) && (
+                <button
+                  onClick={handleAcceptEnquiry}
+                  disabled={acceptLoading}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {acceptLoading ? 'Accepting...' : 'Accept Enquiry'}
+                </button>
+              )}
+              {selectedEnquiry.status === 'accepted' && (
                 <button
                   onClick={() => {
                     if (onCreateQuotation) onCreateQuotation(selectedEnquiry);

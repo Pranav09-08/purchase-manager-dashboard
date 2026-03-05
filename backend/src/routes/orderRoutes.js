@@ -6,6 +6,7 @@ const { authenticateToken } = require('../controllers/authController');
 
 
 // Purchase Order Specific Routes (authenticated)
+router.post('/orders', authenticateToken, orderController.createPurchaseOrder);
 router.get('/orders/:orderId', authenticateToken, orderController.getPurchaseOrder);
 router.get('/purchase-orders', authenticateToken, orderController.getPurchaseOrders);
 router.put('/orders/:orderId/status', authenticateToken, orderController.updatePurchaseOrderStatus);

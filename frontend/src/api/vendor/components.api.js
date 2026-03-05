@@ -42,6 +42,13 @@ export const approveVendorComponent = async (token, componentId) => {
   return data;
 };
 
+export const listAllComponents = async (token) => {
+  const { data } = await apiClient.get('/components', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
 export const rejectVendorComponent = async (token, componentId) => {
   const { data } = await apiClient.put(`/vendor/components/${componentId}/reject`, {}, {
     headers: { Authorization: `Bearer ${token}` },
